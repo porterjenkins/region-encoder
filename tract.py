@@ -115,7 +115,7 @@ class Tract:
                 tracts[tid] = cls.tracts[tid]
         if tractColors == None:
             tractColors = dict(zip(tracts.keys(), ['green']* len(tracts)))
-        print(tractColors)
+        #print(tractColors)
         from descartes import PolygonPatch
         f = plt.figure(figsize=fsize)
         ax = f.gca()
@@ -184,8 +184,38 @@ class Tract:
         plt.tight_layout()
         plt.savefig("adjacency.png")
 
+    @classmethod
+    def get_lat_lon_window(cls):
+        min_lat = 9999999
+        max_lat = -9999999
+        min_lon = 9999999
+        max_lon = -9999999
+
+        for id, t in cls.tracts.items():
+            lat, lon = t.centroid
+
+            if lat > max_lat:
+                max_lat = lat
+
+            if lat < min_lat:
+                min_lat = lat
+
+            if lon > max_lon:
+                max_lon = lon
+
+            if lon < min_lon:
+                min_lon = lon
+
+        return (min_lon, max_lon), (min_lat, max_lat)
+
+
+
+
 
 
 if __name__ == '__main__':
     tracts_all = Tract.createAllTracts()
-    stop = 0
+    lon_range, lat_range = Tract.get_lat_lon_window()
+
+    print(lon_range)
+    print(lat_range)
