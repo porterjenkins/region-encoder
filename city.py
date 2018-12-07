@@ -1,5 +1,7 @@
 import numpy as np
 from grid import GridCell
+from geopy.distance import distance
+from config import get_config
 
 class City(object):
 
@@ -40,11 +42,25 @@ class City(object):
             raise Exception("Compatibility with other region types not implemented yet.")
 
 
+    def compute_distance(self):
+        lon_dist = distance(self.lon_min, self.lon_max)
+        lat_dist = distance(self.lat_min, self.lat_max)
+
+        print("Longitude Dist: {}".format(lon_dist))
+        print("Latitude Dist: {}".format(lat_dist))
+
+
 
 
 if __name__ == '__main__':
 
-    chicago = City(name='chicago', lon_min=41.65021997246178, lon_max=42.02126162051242,
-                   lat_min=-87.90448852338, lat_max=-87.53049651540705, sub_region_type='grid')
+    config = get_config()
 
-    chicago.init_sub_regions(n_splits=25)
+    chicago = City(name='chicago',
+                   lon_min=config['lon_min'],
+                   lon_max=config['lon_max'],
+                   lat_min=config['lat_min'],
+                   lat_max=config['lat_max'],
+                   sub_region_type='grid')
+
+    #chicago.init_sub_regions(n_splits=20)
