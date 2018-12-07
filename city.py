@@ -32,10 +32,14 @@ class City(object):
                                     lon_range=(lon_cut_points[j], lon_cut_points[j + 1]))
 
                     self.sub_regions[id_cnt] = cell
+                    cell.compute_distance()
                     id_cnt += 1
+
         else:
             # TODO: implement other region types: e.g., tracts, etc...
             raise Exception("Compatibility with other region types not implemented yet.")
+
+
 
 
 if __name__ == '__main__':
@@ -43,4 +47,4 @@ if __name__ == '__main__':
     chicago = City(name='chicago', lon_min=41.65021997246178, lon_max=42.02126162051242,
                    lat_min=-87.90448852338, lat_max=-87.53049651540705, sub_region_type='grid')
 
-    chicago.init_sub_regions(n_splits=5)
+    chicago.init_sub_regions(n_splits=25)

@@ -1,4 +1,5 @@
 import numpy as np
+from geopy.distance import distance
 
 
 
@@ -18,4 +19,12 @@ class GridCell:
         lon_centroid = (self.lon_range[0] + self.lon_range[1])/2.0
 
         return (lon_centroid, lat_centroid)
+
+
+    def compute_distance(self):
+        lon_dist = distance(self.lon_range[0], self.lon_range[1]).meters
+        lat_dist = distance(self.lat_range[0], self.lat_range[1]).meters
+
+        print("Longitude Dist: {} m".format(lon_dist))
+        print("Latitude Dist: {} m".format(lat_dist))
 
