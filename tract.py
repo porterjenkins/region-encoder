@@ -206,7 +206,7 @@ class Tract:
             if lon < min_lon:
                 min_lon = lon
 
-        return (min_lon, max_lon), (min_lat, max_lat)
+        return (min_lat, max_lat), (min_lon, max_lon),
 
 
 
@@ -215,7 +215,7 @@ class Tract:
 
 if __name__ == '__main__':
     tracts_all = Tract.createAllTracts()
-    lon_range, lat_range = Tract.get_lat_lon_window()
+    lat_range, lon_range = Tract.get_lat_lon_window()
 
-    print(lon_range)
     print(lat_range)
+    print(lon_range)
