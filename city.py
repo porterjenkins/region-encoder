@@ -63,4 +63,4 @@ if __name__ == '__main__':
                    lat_max=config['lat_max'],
                    sub_region_type='grid')
 
-    #chicago.init_sub_regions(n_splits=20)
+    chicago.init_sub_regions(n_splits=20)
