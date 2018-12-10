@@ -20,18 +20,12 @@ model.fit(X_train, y_train)
 regression = LinearRegression()
 regression.fit(X_train, y_train)
 
-
-
 print("Start Predicting")
 
 predictions = model.predict(X_test)
 lin_pred = regression.predict(X_test)
 
-accuracy = accuracy_score(y_test, predictions)
-lin_accuracy = accuracy_score(y_test, lin_pred)
 
-print(regression.score(X_test,y_test))
-print(model.score(X_test,y_test))
-# do scoring
-# print("F1 Score: %f" % metrics.f1_score(y_test, predictions))
-# print("Score: %.4g" % metrics.accuracy_score(y_test, predictions))
+print(regression.score(X_test, y_test))
+print(model.score(X_test, y_test))
+
