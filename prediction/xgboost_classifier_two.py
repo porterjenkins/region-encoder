@@ -3,7 +3,7 @@ import xgboost
 from numpy import loadtxt
 from sklearn.metrics import mean_squared_error
 
-dataset = loadtxt('/home/ahmad/repos/region-representation-learning/prediction/onehot_and_median_income.csv',
+dataset = loadtxt('onehot_and_median_income.csv',
                   delimiter=",")
 from sklearn.model_selection import train_test_split
 
@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 X = dataset[:, 0:800]
 Y = dataset[:, 801]
 
-X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=.2, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=.2, random_state=1990)
 param = {
     'objective': 'reg:linear',
     'eta': 0.02,
