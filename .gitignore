@@ -1,1 +1,7 @@
 .idea
+
+# config file
+config.json
+
+# deepwalk library
+deepwalk-master

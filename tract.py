@@ -206,7 +206,17 @@ class Tract:
             if lon < min_lon:
                 min_lon = lon
 
-        return (min_lat, max_lat), (min_lon, max_lon),
+
+
+    @classmethod
+    def gen_adj_list(cls, fname):
+        with open(fname, 'w') as adj_f:
+            for id, t in cls.tracts.items():
+                adj_f.write(str(id) + " ")
+                for neighbor in t.neighbors:
+                    adj_f.write(str(neighbor.id) + " ")
+                adj_f.write("\n")
+
 
 
 
@@ -214,8 +224,7 @@ class Tract:
 
 
 if __name__ == '__main__':
+    c = get_config()
+    print(c['edge_list_file'])
     tracts_all = Tract.createAllTracts()
-    lat_range, lon_range = Tract.get_lat_lon_window()
-
-    print(lat_range)
-    print(lon_range)
+    Tract.gen_adj_list(c['edge_list_file'])
