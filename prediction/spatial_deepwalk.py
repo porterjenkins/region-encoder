@@ -58,10 +58,12 @@ param = {
 }
 trn = xgboost.DMatrix(X_train, label=y_train)
 tst = xgboost.DMatrix(X_test, label=y_test)
-res = xgboost.cv(param, trn, nfold=4, early_stopping_rounds=50, metrics=['rmse'], maximize=False)
-min_index = np.argmin(res['test-rmse-mean'])
+#res = xgboost.cv(param, trn, nfold=4, early_stopping_rounds=50, metrics=['rmse'], maximize=False)
+#min_index = np.argmin(res['test-rmse-mean'])
 
-model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
+eval_list = [(trn, 'train'), (tst, 'test')]
+model = xgboost.train(param, trn, 100, verbose_eval=True, evals=eval_list)
+#model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
 pred = model.predict(tst)
 rmse = np.sqrt(mean_squared_error(y_test, pred))
 mae = mean_absolute_error(y_test, pred)

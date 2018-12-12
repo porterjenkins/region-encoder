@@ -8,8 +8,8 @@ dataset = loadtxt('onehot_and_median_income.csv',
 from sklearn.model_selection import train_test_split
 
 # split data into X and y
-X = dataset[:, 0:800]
-Y = dataset[:, 801]
+X = dataset[:, 1:801]
+Y = dataset[:, 802]
 
 X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=.2, random_state=1990)
 param = {
@@ -25,10 +25,12 @@ param = {
 }
 trn = xgboost.DMatrix(X_train, label=y_train)
 tst = xgboost.DMatrix(X_test, label=y_test)
-res = xgboost.cv(param, trn, nfold=4, early_stopping_rounds=50,metrics=['rmse'], maximize=False)
-min_index = numpy.argmin(res['test-rmse-mean'])
+#res = xgboost.cv(param, trn, nfold=4, early_stopping_rounds=50,metrics=['rmse'], maximize=False)
+#min_index = numpy.argmin(res['test-rmse-mean'])
 
-model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
+eval_list = [(trn, 'train'), (tst, 'test')]
+model = xgboost.train(param, trn, 100, verbose_eval=True, evals=eval_list)
+#model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
 pred = model.predict(tst)
 rmse = numpy.sqrt(mean_squared_error(y_test, pred))
 mae = mean_absolute_error(y_test, pred)
