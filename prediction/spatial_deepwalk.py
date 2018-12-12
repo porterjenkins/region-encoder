@@ -10,8 +10,8 @@ import pandas as pd
 
 
 c = get_config()
-dataset = loadtxt('onehot_and_median_income.csv',
-                  delimiter=",")
+dataset = pd.read_csv('onehot_and_median_income.csv',
+                  delimiter=",",header=None, index_col=0)
 
 deepwalk_features = list()
 idx = list()
@@ -25,21 +25,26 @@ with open(c['deepwalk_file'], 'rb') as f:
             for i, element in enumerate(row):
                 # skip 0th element - tract id
                 if i == 0:
-                    idx.append(element)
+                    idx.append(int(element))
                 else:
                     row_float.append(float(element))
             deepwalk_features.append(row_float)
 
         cntr +=1
 
-X = pd.DataFrame(deepwalk_features, index=idx)
+deepwalk_features = pd.DataFrame(deepwalk_features, index=idx)
 # split data into X and y
 #X = dataset[:, 0:800]
-Y = dataset[:, 801]
+Y = dataset.iloc[:, 801].to_frame()
 
 
+X = pd.merge(deepwalk_features, Y, left_index=True, right_index=True, how='left')
 
-X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=.2, random_state=1990)
+
+X_all = X.iloc[:, 0:64].values
+Y_all = X.iloc[:, 64].values
+
+X_train, X_test, y_train, y_test = train_test_split(X_all, Y_all, test_size=.2, random_state=1990)
 param = {
     'objective': 'reg:linear',
     'eta': 0.02,
@@ -53,7 +58,7 @@ param = {
 }
 trn = xgboost.DMatrix(X_train, label=y_train)
 tst = xgboost.DMatrix(X_test, label=y_test)
-res = xgboost.cv(param, trn, nfold=4, early_stopping_rounds=50,metrics=['rmse'], maximize=False)
+res = xgboost.cv(param, trn, nfold=4, early_stopping_rounds=50, metrics=['rmse'], maximize=False)
 min_index = np.argmin(res['test-rmse-mean'])
 
 model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
