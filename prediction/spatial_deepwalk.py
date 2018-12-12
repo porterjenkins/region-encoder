@@ -1,15 +1,43 @@
-import numpy
+import numpy as np
 import xgboost
 from numpy import loadtxt
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import train_test_split
+import pandas as pd
+from config import get_config
+import pandas as pd
 
+
+
+c = get_config()
 dataset = loadtxt('onehot_and_median_income.csv',
                   delimiter=",")
-from sklearn.model_selection import train_test_split
 
+deepwalk_features = list()
+idx = list()
+
+with open(c['deepwalk_file'], 'rb') as f:
+    cntr = 0
+    for line in f:
+        if cntr > 0:
+            row = line.decode('utf-8').split(" ")
+            row_float = []
+            for i, element in enumerate(row):
+                # skip 0th element - tract id
+                if i == 0:
+                    idx.append(element)
+                else:
+                    row_float.append(float(element))
+            deepwalk_features.append(row_float)
+
+        cntr +=1
+
+X = pd.DataFrame(deepwalk_features, index=idx)
 # split data into X and y
-X = dataset[:, 0:800]
+#X = dataset[:, 0:800]
 Y = dataset[:, 801]
+
+
 
 X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=.2, random_state=1990)
 param = {
@@ -26,11 +54,11 @@ param = {
 trn = xgboost.DMatrix(X_train, label=y_train)
 tst = xgboost.DMatrix(X_test, label=y_test)
 res = xgboost.cv(param, trn, nfold=4, early_stopping_rounds=50,metrics=['rmse'], maximize=False)
-min_index = numpy.argmin(res['test-rmse-mean'])
+min_index = np.argmin(res['test-rmse-mean'])
 
 model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
 pred = model.predict(tst)
-rmse = numpy.sqrt(mean_squared_error(y_test, pred))
+rmse = np.sqrt(mean_squared_error(y_test, pred))
 mae = mean_absolute_error(y_test, pred)
 print('Test RMSE: {:.4f}'.format(rmse))
 print('Test MAE: {:.4f}'.format(mae))

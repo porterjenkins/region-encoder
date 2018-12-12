@@ -1,6 +1,7 @@
-# pycharm project
-.idea/
+.idea
 
-# Config File
+# config file
 config.json
 
+# deepwalk library
+deepwalk-master

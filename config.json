@@ -1,8 +1,0 @@
-{
-	"tract_shape_file": "/home/ahmad/repos/region-representation-learning/chicago/Census-Tracts-2010/chicago-tract.shp",
-	"osm_file": "/home/ahmad/repos/region-representation-learning/chicago/chicago.osm",
-	"lon_min": "41.65021997246178",
-	"lon_max": "42.02126162051242",
-	"lat_min": "-87.90448852338",
-	"lat_max": "-87.53049651540705"
-}

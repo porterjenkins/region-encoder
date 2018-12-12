@@ -8,8 +8,8 @@ def get_config():
         config = json.load(f)
 
     for key, val in config.items():
-        if 'fname' in key:
-            config[key] = val
+        if 'file' in key:
+            config[key] = config['data_dir_main'] + val
 
     return config
 
