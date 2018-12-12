@@ -1,1 +1,6 @@
-.idea
+# pycharm project
+.idea/
+
+# Config File
+config.json
+
