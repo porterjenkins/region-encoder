@@ -7,6 +7,7 @@ import pandas as pd
 from config import get_config
 
 
+n_epochs = 250
 c = get_config()
 dataset = loadtxt('onehot_and_median_income.csv',
                   delimiter=",")
@@ -18,8 +19,8 @@ poi_dist = poi_dist.div(poi_dist.sum(axis=1), axis=0).values
 X = dataset[:, 1:801]
 Y = dataset[:, 802]
 
-#X = np.concatenate((X, poi_dist), axis=1)
-X = poi_dist
+X = np.concatenate((X, poi_dist), axis=1)
+#X = poi_dist
 
 X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=.2, random_state=1990)
 param = {
@@ -40,7 +41,7 @@ tst = xgboost.DMatrix(X_test, label=y_test)
 
 
 eval_list = [(trn, 'train'), (tst, 'test')]
-model = xgboost.train(param, trn, 100, verbose_eval=True, evals=eval_list)
+model = xgboost.train(param, trn, n_epochs, verbose_eval=True, evals=eval_list)
 #model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
 pred = model.predict(tst)
 rmse = np.sqrt(mean_squared_error(y_test, pred))

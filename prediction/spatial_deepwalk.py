@@ -8,7 +8,7 @@ from config import get_config
 import pandas as pd
 
 
-
+n_epochs = 250
 c = get_config()
 dataset = pd.read_csv('onehot_and_median_income.csv',
                   delimiter=",",header=None, index_col=0)
@@ -62,7 +62,7 @@ tst = xgboost.DMatrix(X_test, label=y_test)
 #min_index = np.argmin(res['test-rmse-mean'])
 
 eval_list = [(trn, 'train'), (tst, 'test')]
-model = xgboost.train(param, trn, 100, verbose_eval=True, evals=eval_list)
+model = xgboost.train(param, trn, n_epochs, verbose_eval=True, evals=eval_list)
 #model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
 pred = model.predict(tst)
 rmse = np.sqrt(mean_squared_error(y_test, pred))

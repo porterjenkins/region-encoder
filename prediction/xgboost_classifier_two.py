@@ -3,9 +3,11 @@ import xgboost
 from numpy import loadtxt
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
+n_epochs = 250
 dataset = loadtxt('onehot_and_median_income.csv',
                   delimiter=",")
 from sklearn.model_selection import train_test_split
+
 
 # split data into X and y
 X = dataset[:, 1:801]
@@ -29,7 +31,7 @@ tst = xgboost.DMatrix(X_test, label=y_test)
 #min_index = numpy.argmin(res['test-rmse-mean'])
 
 eval_list = [(trn, 'train'), (tst, 'test')]
-model = xgboost.train(param, trn, 100, verbose_eval=True, evals=eval_list)
+model = xgboost.train(param, trn, n_epochs, verbose_eval=True, evals=eval_list)
 #model = xgboost.train(param, trn, min_index, [(trn, 'train'), (tst, 'test')])
 pred = model.predict(tst)
 rmse = numpy.sqrt(mean_squared_error(y_test, pred))
