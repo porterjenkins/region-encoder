@@ -24,7 +24,7 @@ config = get_config()
 
 args = DWparams(input=config['edge_list_file'],
               format='adjlist',
-              undirected=False,
+              undirected=True,
               output=config['deepwalk_file'],
               number_walks=100,
               representation_size=64,

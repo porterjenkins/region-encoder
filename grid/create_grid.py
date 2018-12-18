@@ -176,8 +176,9 @@ class Region:
         self.poi.append(poi)
 
 
-c = get_config()
-file = open(c["poi_file"], 'rb')
-region_grid = RegionGrid(file, 100)
 
-r = region_grid.get_region_for_coor(41.65021997246178, -87.90448852338)
+if __name__ == '__main__':
+    c = get_config()
+    file = open(c["poi_file"], 'rb')
+    region_grid = RegionGrid(file, 100)
+    stop = 0
