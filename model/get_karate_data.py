@@ -20,6 +20,30 @@ def get_adj_mtx():
     return A
 
 
+def get_degree_mtx(A):
+    n = A.shape[0]
+    # count degrees
+    d = np.sum(A, axis=1)
+    # Put into diag matrix
+    D = np.diag(d)
+
+    # get D^-1/2
+
+    D = np.linalg.inv(D)
+    D = np.power(D, 2)
+
+
+    return D
+
+def get_a_hat(A):
+    n = A.shape[0]
+
+    return A + np.eye(n)
+
+
+
+
+
 def get_features():
     G = nx.karate_club_graph()
     pos = nx.spring_layout(G)
@@ -37,5 +61,12 @@ if __name__ == "__main__":
     A = get_adj_mtx()
     print(A)
 
+
     X = get_features()
     print(X)
+
+    D = get_degree_mtx(A)
+    print(D)
+
+    A_hat = get_a_hat(A)
+    print(A_hat)
