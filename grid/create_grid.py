@@ -21,7 +21,7 @@ class RegionGrid:
         self.grid_size = grid_size
         self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], grid_size)
         self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], grid_size)
-        self.regions = self.create_regions(grid_size, self.x_space, self.y_space)
+        self.regions, self.adj_matrix = self.create_regions(grid_size, self.x_space, self.y_space)
 
     def load_poi(self, poi):
         x_space = self.x_space
@@ -57,10 +57,14 @@ class RegionGrid:
             return regions[r_key]
         return "No Region Found"
 
+    def get_adjacency_matrix(self):
+        return self.adj_matrix
+
     @staticmethod
     def create_regions(grid_size, x_space, y_space):
         regions = {}
         grid_index = {}
+        id = 0
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
                 nw, ne, sw, se = None, None, None, None
@@ -74,7 +78,8 @@ class RegionGrid:
                         ne = (x_space[x_point + 1], y_space[y_point])
                     if y_point + 1 < grid_size:
                         sw = (x_space[x_point], y_space[y_point + 1])
-                r = Region(f"{x_point},{y_point}", {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
+                r = Region(f"{x_point},{y_point}", id, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
+                id += 1
                 regions[f"{x_point},{y_point}"] = r
                 for key in RegionGrid.key_gen(x_point, y_point):
                     if key in grid_index:
@@ -82,16 +87,27 @@ class RegionGrid:
                     else:
                         grid_index[key] = [r]
 
+        # adjacency matrix
+        v = grid_size * grid_size
+        # all zeroes
+        matrix = numpy.zeros((v, v))
         # for regions, append touching regions
         for region_id, region in regions.items():
+            id = region.id
             index = region.index.split(",")
+            x = int(index[0])
+            y = int(index[1])
             adj = {}
-            for key in RegionGrid.key_gen(int(index[0]), int(index[1])):
+            for key in RegionGrid.key_gen(x, y):
                 for region_from_index in grid_index[key]:
                     if region_from_index.index != region.index:
                         adj[str(region_from_index.index)] = region_from_index
             region.create_adjacency(adj)
-        return regions
+            # for each adjacent region, get its id and set the column for it to 1 in the adj matrix
+            for adj_region in adj.values():
+                adj_index = adj_region.id
+                matrix[id][adj_index] = 1
+        return regions, matrix
 
     @staticmethod
     def get_rect(poi_data):
@@ -133,7 +149,8 @@ class RegionGrid:
 
 class Region:
 
-    def __init__(self, index, points):
+    def __init__(self, index, id, points):
+        self.id = id
         self.index = index
         self.points = points
         self.nw = points['nw']
@@ -174,7 +191,6 @@ class Region:
 
     def add_poi(self, poi):
         self.poi.append(poi)
-
 
 
 if __name__ == '__main__':
