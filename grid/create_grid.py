@@ -5,23 +5,21 @@ import numpy
 from config import get_config
 
 
-# import rtree
-# import geopy
-
 class RegionGrid:
 
     def __init__(self, poi_file, grid_size=100):
 
         poi = pickle.load(poi_file)
-        rect = RegionGrid.get_rect(poi)
-        self.lon_min = rect["lon_min"]
-        self.lon_max = rect["lon_max"]
-        self.lat_min = rect["lat_min"]
-        self.lat_max = rect["lat_max"]
+        rect, self.categories = RegionGrid.handle_poi(poi)
+        self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
+                                                                 rect["lat_max"]
         self.grid_size = grid_size
         self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], grid_size)
         self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], grid_size)
-        self.regions, self.adj_matrix = self.create_regions(grid_size, self.x_space, self.y_space)
+        self.regions, self.adj_matrix, self.degree_matrix = RegionGrid.create_regions(grid_size, self.x_space,
+                                                                                      self.y_space)
+        self.load_poi(poi)
+        self.feature_matrix = self.create_feature_matrix()
 
     def load_poi(self, poi):
         x_space = self.x_space
@@ -57,9 +55,6 @@ class RegionGrid:
             return regions[r_key]
         return "No Region Found"
 
-    def get_adjacency_matrix(self):
-        return self.adj_matrix
-
     @staticmethod
     def create_regions(grid_size, x_space, y_space):
         regions = {}
@@ -88,7 +83,7 @@ class RegionGrid:
                         grid_index[key] = [r]
 
         # adjacency matrix
-        v = grid_size * grid_size
+        v = pow(grid_size, 2)
         # all zeroes
         matrix = numpy.zeros((v, v))
         # for regions, append touching regions
@@ -107,15 +102,24 @@ class RegionGrid:
             for adj_region in adj.values():
                 adj_index = adj_region.id
                 matrix[id][adj_index] = 1
-        return regions, matrix
+        return regions, matrix, RegionGrid.get_degree_mtx(matrix)
 
     @staticmethod
-    def get_rect(poi_data):
-        poi_lon_min, poi_lon_max, poi_lat_min, poi_lat_max = None, None, None, None
+    def get_degree_mtx(A):
+        return numpy.diag(numpy.sum(A, axis=1))
 
+    @staticmethod
+    def handle_poi(poi_data):
+        poi_lon_min, poi_lon_max, poi_lat_min, poi_lat_max = None, None, None, None
+        cat_to_index = {}
         for id, poi_obj in poi_data.items():
             lat = poi_obj.location.lat
             long = poi_obj.location.lon
+            # category of poi data
+            cat = poi_obj.cat
+            if cat not in cat_to_index:
+                current_size = len(cat_to_index)
+                cat_to_index[cat] = current_size
             if poi_lon_min is None:
                 poi_lon_min = long
                 poi_lon_max = long
@@ -130,12 +134,13 @@ class RegionGrid:
                     poi_lat_min = lat
                 if lat > poi_lat_max:
                     poi_lat_max = lat
-        return {
+        rect = {
             "lon_min": poi_lon_min,
             "lon_max": poi_lon_max,
             "lat_min": poi_lat_min,
             "lat_max": poi_lat_max
         }
+        return rect, cat_to_index
 
     @staticmethod
     def key_gen(x_point, y_point):
@@ -146,6 +151,22 @@ class RegionGrid:
             f"{x_point + 1}:{y_point + 1}",
         ]
 
+    def create_feature_matrix(self):
+        regions = self.regions
+        n = pow(self.grid_size, 2)
+        m = len(self.categories)
+        print(f"Creating Feature Matrix of size {n} X {m}")
+        feature_matrix = numpy.zeros(shape=(n, m))
+        for region in regions.values():
+            index = region.id
+            cats = region.categories
+            for cat in cats:
+                cat_index = self.categories[cat]
+                current = feature_matrix[index][cat_index] + 1
+                feature_matrix[index][cat_index] = current
+
+        return feature_matrix
+
 
 class Region:
 
@@ -153,10 +174,8 @@ class Region:
         self.id = id
         self.index = index
         self.points = points
-        self.nw = points['nw']
-        self.ne = points['ne']
-        self.sw = points['sw']
-        self.se = points['se']
+        self.categories = set()
+        self.nw, self.ne, self.sw, self.se = points['nw'], points['ne'], points['sw'], points['se']
         self.poi = []
         self.adjacent = {}
         self.move = self.move_keys()
@@ -191,10 +210,17 @@ class Region:
 
     def add_poi(self, poi):
         self.poi.append(poi)
+        self.categories.add(poi.cat)
 
 
 if __name__ == '__main__':
     c = get_config()
     file = open(c["poi_file"], 'rb')
     region_grid = RegionGrid(file, 100)
-    stop = 0
+    A = region_grid.adj_matrix
+    D = region_grid.degree_matrix
+    cat = region_grid.categories
+    print(region_grid.feature_matrix[6671])
+    print(numpy.nonzero(region_grid.feature_matrix[6671]))
+    for cat in region_grid.regions['66,71'].categories:
+        print(region_grid.categories[cat])
