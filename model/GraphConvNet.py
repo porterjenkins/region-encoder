@@ -22,16 +22,9 @@ class GCN(nn.Module):
         H_0 = F.relu(self.fcl_0(G_0))
 
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
-        H_1 = self.fcl_0(G_0)
+        H_1 = self.fcl_1(G_1)
 
         return H_1
-
-
-
-
-
-
-
 
 
 
