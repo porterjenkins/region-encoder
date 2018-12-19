@@ -216,11 +216,13 @@ class Region:
 if __name__ == '__main__':
     c = get_config()
     file = open(c["poi_file"], 'rb')
-    region_grid = RegionGrid(file, 100)
+    region_grid = RegionGrid(file, 50)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
-    print(region_grid.feature_matrix[6671])
-    print(numpy.nonzero(region_grid.feature_matrix[6671]))
-    for cat in region_grid.regions['66,71'].categories:
+
+    r = region_grid.regions['25,25']
+    print(region_grid.feature_matrix[r.id])
+    print(numpy.nonzero(region_grid.feature_matrix[r.id]))
+    for cat in region_grid.regions[r.index].categories:
         print(region_grid.categories[cat])
