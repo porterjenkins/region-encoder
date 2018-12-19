@@ -30,7 +30,7 @@ def get_degree_mtx(A):
     # get D^-1/2
 
     D = np.linalg.inv(D)
-    D = np.power(D, 2)
+    D = np.power(D, .5)
 
 
     return D
