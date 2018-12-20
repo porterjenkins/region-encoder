@@ -12,7 +12,7 @@ class GCN(nn.Module):
         # fully connected layer 1
         self.fcl_0 = nn.Linear(n_features, 8, bias=True)
         # fully connected layer 2
-        self.fcl_1 = nn.Linear(8, 8, bias=True)
+        self.fcl_1 = nn.Linear(8, 4, bias=True)
 
 
 
@@ -24,6 +24,7 @@ class GCN(nn.Module):
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
         H_1 = self.fcl_1(G_1)
 
+
         return H_1
 
     def get_optimizer(self):
@@ -32,10 +33,10 @@ class GCN(nn.Module):
 
         return criterion, optimizer
 
-    def run_train_job(self, X_train, y_train, A_hat, D_hat):
+    def run_train_job(self, X_train, y_train, A_hat, D_hat, n_epoch):
         cross_entropy, optimizer = self.get_optimizer()
 
-        for epoch in range(100):  # loop over the dataset multiple times
+        for epoch in range(n_epoch):  # loop over the dataset multiple times
 
             running_loss = 0.0
             # zero the parameter gradients
@@ -75,4 +76,4 @@ if __name__ == "__main__":
 
     gcn = GCN(n_nodes=n_nodes, n_features=2)
 
-    gcn.run_train_job(X_train=X, y_train=labels, A_hat=A_hat, D_hat=D_hat)
+    gcn.run_train_job(X_train=X, y_train=labels, A_hat=A_hat, D_hat=D_hat, n_epoch=250)
