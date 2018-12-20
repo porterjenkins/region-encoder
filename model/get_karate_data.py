@@ -56,6 +56,19 @@ def get_features():
     return X
 
 
+def get_labels(n_samples, class_probs):
+    n_classes = len(class_probs)
+    classes = range(n_classes)
+    y = np.zeros(shape=(n_samples))
+
+    for i in range(n_samples):
+
+        label = np.random.choice(classes, p=class_probs)
+        y[i] = label
+
+    return y
+
+
 if __name__ == "__main__":
 
     A = get_adj_mtx()
@@ -70,3 +83,6 @@ if __name__ == "__main__":
 
     A_hat = get_a_hat(A)
     print(A_hat)
+
+    y = get_labels(n_samples=X.shape[0], class_probs=[.2, .5, .2, .1])
+    print(y)
