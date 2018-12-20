@@ -5,6 +5,13 @@ from model.get_karate_data import *
 import torch.optim as optim
 
 class GCN(nn.Module):
+    """
+    Graph ConvNet Model (via Kipf and Welling ICLR'2017)
+    Three matrices required:
+        - A: Adjacency matrix (A + I)
+        - D: Diagonal matrix (D^-1/2)
+        - X: Nodal feature matrix
+    """
     def __init__(self, n_nodes, n_features):
         super(GCN, self).__init__()
         self.n_nodes = n_nodes
@@ -12,7 +19,9 @@ class GCN(nn.Module):
         # fully connected layer 1
         self.fcl_0 = nn.Linear(n_features, 8, bias=True)
         # fully connected layer 2
-        self.fcl_1 = nn.Linear(8, 4, bias=True)
+        self.fcl_1 = nn.Linear(8, 8, bias=True)
+        # fully connected layer 3
+        self.fcl_2 = nn.Linear(8, 4, bias=True)
 
 
 
@@ -24,12 +33,15 @@ class GCN(nn.Module):
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
         H_1 = self.fcl_1(G_1)
 
+        G_2 = torch.mm(torch.mm(A, torch.mm(A,D)), H_1)
+        H_2 = self.fcl_2(G_2)
 
-        return H_1
+
+        return H_2
 
     def get_optimizer(self):
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
+        optimizer = optim.SGD(self.parameters(), lr=0.0001, momentum=0.9)
 
         return criterion, optimizer
 
