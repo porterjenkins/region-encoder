@@ -51,10 +51,10 @@ class AutoEncoder(nn.Module):
         #print(x.shape)
 
         # hidden state
-        h = self.fc3(x)
+        self.h = self.fc3(x)
         #print(h.shape)
 
-        x = F.relu(self.fc4(h))
+        x = F.relu(self.fc4(self.h))
         #print(x.shape)
         x = F.relu(self.fc5(x))
         #print(x.shape)
@@ -75,11 +75,12 @@ class AutoEncoder(nn.Module):
 
     def get_optimizer(self):
         criterion = nn.MSELoss()
-        optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
+        optimizer = optim.SGD(self.parameters(), lr=0.005, momentum=0.9)
 
         return criterion, optimizer
 
-    def add_noise(self, image_tensor):
+    def add_noise(self, image_tensor, noise_factor=.5):
+        noised_image = torch.zeros(image_tensor.shape)
         batch_size = image_tensor.shape[0]
         channels = image_tensor.shape[1]
         h = image_tensor.shape[2]
@@ -87,11 +88,12 @@ class AutoEncoder(nn.Module):
         mvn = MultivariateNormal(torch.zeros((h,w)), torch.eye(w))
         for i in range(batch_size):
             for k in range(channels):
-                image_tensor[i, k, :, :] = image_tensor[i, k, :, :] + mvn.sample()
+                noise = torch.clamp(mvn.sample(), min=-1, max=1)
+                noised_image[i, k, :, :] = image_tensor[i, k, :, :] + noise_factor*noise
 
-        return image_tensor
+        return noised_image
 
-    def run_train_job(self, n_epoch, trainloader, print_iter=100):
+    def run_train_job(self, n_epoch, trainloader, print_iter=500):
         MSE, optimizer = self.get_optimizer()
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
@@ -99,24 +101,33 @@ class AutoEncoder(nn.Module):
             for i, data in enumerate(trainloader, 0):
 
                 inputs, labels = data
+                #imshow(img=torchvision.utils.make_grid(inputs), save=True, fname='true-{}.png'.format(i))
 
-                inputs = self.add_noise(inputs)
+                noisey_inputs = self.add_noise(inputs, noise_factor=.25)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
                 # forward + backward + optimize
-                reconstruction = self.forward(x=inputs)
+                reconstruction = self.forward(x=noisey_inputs)
                 loss = MSE(inputs, reconstruction)
                 loss.backward()
                 optimizer.step()
-
                 # print statistics
                 running_loss += loss.item()
-                if i % print_iter == 0:
+                if (i + 1) % print_iter == 0:
                     avg_loss = running_loss / print_iter
-                    print("Epoch: {}, Step: {}, Train Loss {:.4f}".format(epoch, i, avg_loss))
+                    print("Epoch: {}, Step: {}, Train Loss {:.4f}".format(epoch, i+1, avg_loss))
                     running_loss = 0.0
+                    #print(self.h)
+
+            imshow(img=torchvision.utils.make_grid(inputs), save=True, fname='true-{}.png'.format(epoch+1))
+            imshow(img=torchvision.utils.make_grid(noisey_inputs), save=True, fname='noisy-{}.png'.format(epoch+1))
+            imshow(img=torchvision.utils.make_grid(reconstruction), save=True,
+                   fname='reconstruction-{}.png'.format(epoch+1))
+
+
+
 
         print('Finished Training')
 
@@ -150,11 +161,14 @@ import numpy as np
 # functions to show an image
 
 
-def imshow(img):
+def imshow(img, save=False, fname=None):
     img = img / 2 + 0.5     # unnormalize
-    npimg = img.numpy()
+    npimg = img.detach().numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    plt.show()
+    if save:
+        plt.savefig("tmp/" + fname)
+    else:
+        plt.show()
 
 
 # get some random training images
@@ -163,7 +177,7 @@ images, labels = dataiter.next()
 
 auto_encoder = AutoEncoder()
 #reconstruction = ae.forward(images)
-auto_encoder.run_train_job(n_epoch=3, trainloader=trainloader)
+auto_encoder.run_train_job(n_epoch=10, trainloader=trainloader)
 
 #print(images[0,:,:,:])
 #print(reconstruction[0,:,:,:])
