@@ -1,6 +1,14 @@
-# pycharm project
-.idea/
-
-# Config File
+.idea
+venv/
+__pycache__/
+# config file
 config.json
 
+# deepwalk library
+deepwalk-master
+
+chicago
+
+
+# PyTorch tutorials
+tutorials
