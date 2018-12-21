@@ -75,6 +75,8 @@ class AutoEncoder(nn.Module):
 
     def get_optimizer(self):
         criterion = nn.MSELoss()
+        # TODO: Try BCE loss
+        #criterion = torch.nn.BCELoss()
         optimizer = optim.SGD(self.parameters(), lr=0.005, momentum=0.9)
 
         return criterion, optimizer
@@ -94,7 +96,7 @@ class AutoEncoder(nn.Module):
         return noised_image
 
     def run_train_job(self, n_epoch, trainloader, print_iter=500):
-        MSE, optimizer = self.get_optimizer()
+        loss_function, optimizer = self.get_optimizer()
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             running_loss = 0.0
@@ -110,7 +112,7 @@ class AutoEncoder(nn.Module):
 
                 # forward + backward + optimize
                 reconstruction, h = self.forward(x=noisey_inputs)
-                loss = MSE(inputs, reconstruction)
+                loss = loss_function(inputs, reconstruction)
                 loss.backward()
                 optimizer.step()
                 # print statistics
