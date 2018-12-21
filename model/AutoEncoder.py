@@ -15,23 +15,23 @@ class AutoEncoder(nn.Module):
         ### Encoder
 
         # convoluional layer
-        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.conv1 = nn.Conv2d(3, 6, 3)
         # Max pool layer
         self.pool = nn.MaxPool2d(2, 2)
         # Convolutional Layer
-        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.conv2 = nn.Conv2d(6, 24, 3)
         # Three fully connected layers
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc1 = nn.Linear(24 * 6 * 6, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 32)
 
         ### Decoder
         self.fc4 = nn.Linear(32, 84)
         self.fc5 = nn.Linear(84, 120)
-        self.fc6 = nn.Linear(120, 16 * 5 * 5)
-        self.conv3 = nn.Conv2d(16, 6, 5)
+        self.fc6 = nn.Linear(120, 24 * 6 * 6)
+        self.conv3 = nn.Conv2d(24, 6, 3)
         self.up_sample3 = nn.UpsamplingBilinear2d((14, 14))
-        self.conv4 = nn.Conv2d(6, 3, 5)
+        self.conv4 = nn.Conv2d(6, 3, 3)
         self.up_sample4 = nn.UpsamplingBilinear2d((32, 32))
 
 
@@ -43,7 +43,7 @@ class AutoEncoder(nn.Module):
         #print(x.shape)
         x = self.pool(F.relu(self.conv2(x)))
         #print(x.shape)
-        x = x.view(-1, 16 * 5 * 5)
+        x = x.view(-1, 24 * 6 * 6)
         #print(x.shape)
         x = F.relu(self.fc1(x))
         #print(x.shape)
@@ -51,17 +51,17 @@ class AutoEncoder(nn.Module):
         #print(x.shape)
 
         # hidden state
-        self.h = self.fc3(x)
-        #print(h.shape)
+        h = self.fc3(x)
+        #print(self.h.shape)
 
-        x = F.relu(self.fc4(self.h))
+        x = F.relu(self.fc4(h))
         #print(x.shape)
         x = F.relu(self.fc5(x))
         #print(x.shape)
         x = F.relu(self.fc6(x))
         #print(x.shape)
 
-        x = x.view(4, 16, 5, 5)
+        x = x.view(-1, 24, 6, 6)
         #print(x.shape)
 
         x = self.up_sample3(F.relu(self.conv3(x)))
@@ -70,7 +70,7 @@ class AutoEncoder(nn.Module):
         #print(x.shape)
 
 
-        return x
+        return x, h
 
 
     def get_optimizer(self):
@@ -109,7 +109,7 @@ class AutoEncoder(nn.Module):
                 optimizer.zero_grad()
 
                 # forward + backward + optimize
-                reconstruction = self.forward(x=noisey_inputs)
+                reconstruction, h = self.forward(x=noisey_inputs)
                 loss = MSE(inputs, reconstruction)
                 loss.backward()
                 optimizer.step()
@@ -131,62 +131,51 @@ class AutoEncoder(nn.Module):
 
         print('Finished Training')
 
-########################################################################
-# The output of torchvision datasets are PILImage images of range [0, 1].
-# We transform them to Tensors of normalized range [-1, 1].
 
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+if __name__ == "__main__":
+    ########################################################################
+    # The output of torchvision datasets are PILImage images of range [0, 1].
+    # We transform them to Tensors of normalized range [-1, 1].
 
-trainset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=True,
-                                        download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
-                                          shuffle=True, num_workers=2)
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
-                                       download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=4,
-                                         shuffle=False, num_workers=2)
+    trainset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=True,
+                                            download=True, transform=transform)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=8,
+                                              shuffle=True, num_workers=2)
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
+                                           download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=8,
+                                             shuffle=False, num_workers=2)
 
-########################################################################
-# Let us show some of the training images, for fun.
+    classes = ('plane', 'car', 'bird', 'cat',
+               'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-import matplotlib.pyplot as plt
-import numpy as np
+    ########################################################################
+    # Let us show some of the training images, for fun.
 
-# functions to show an image
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-
-def imshow(img, save=False, fname=None):
-    img = img / 2 + 0.5     # unnormalize
-    npimg = img.detach().numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    if save:
-        plt.savefig("tmp/" + fname)
-    else:
-        plt.show()
+    # functions to show an image
 
 
-# get some random training images
-dataiter = iter(trainloader)
-images, labels = dataiter.next()
-
-auto_encoder = AutoEncoder()
-#reconstruction = ae.forward(images)
-auto_encoder.run_train_job(n_epoch=10, trainloader=trainloader)
-
-#print(images[0,:,:,:])
-#print(reconstruction[0,:,:,:])
-
-# show images
-#print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
-#imshow(torchvision.utils.make_grid(images))
+    def imshow(img, save=False, fname=None):
+        img = img / 2 + 0.5     # unnormalize
+        npimg = img.detach().numpy()
+        plt.imshow(np.transpose(npimg, (1, 2, 0)))
+        if save:
+            plt.savefig("tmp/" + fname)
+        else:
+            plt.show()
 
 
+    # get some random training images
+    dataiter = iter(trainloader)
+    images, labels = dataiter.next()
 
-
-#print(images.shape)
+    auto_encoder = AutoEncoder()
+    auto_encoder.run_train_job(n_epoch=25, trainloader=trainloader)
