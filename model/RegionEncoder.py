@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import torch.optim as optim
+from model.AutoEncoder import AutoEncoder
+from model.GraphConvNet import GCN
 
 class LinearLayer_1(nn.Module):
     def __init__(self, n_features, out_features):

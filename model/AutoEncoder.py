@@ -78,7 +78,7 @@ class AutoEncoder(nn.Module):
         criterion = nn.MSELoss()
         # TODO: Try BCE loss
         #criterion = torch.nn.BCELoss()
-        optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
+        optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
 
         return criterion, optimizer
 
