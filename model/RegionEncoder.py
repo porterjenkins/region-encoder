@@ -24,6 +24,11 @@ class LinearLayer_2(nn.Module):
         return y_hat
 
 
+class Discriminator(nn.Module):
+    def __init__(self):
+        super(Discriminator, self).__init__()
+
+
 
 class RegionEncoder(nn.Module):
     """

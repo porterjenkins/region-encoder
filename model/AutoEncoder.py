@@ -33,6 +33,7 @@ class AutoEncoder(nn.Module):
         self.up_sample3 = nn.UpsamplingBilinear2d((14, 14))
         self.conv4 = nn.Conv2d(6, 3, 3)
         self.up_sample4 = nn.UpsamplingBilinear2d((32, 32))
+        self.conv5 = nn.Conv2d(3, 3, kernel_size=1)
 
 
 
@@ -68,7 +69,7 @@ class AutoEncoder(nn.Module):
         #print(x.shape)
         x = self.up_sample4(F.relu(self.conv4(x)))
         #print(x.shape)
-
+        x = torch.tanh(self.conv5(x))
 
         return x, h
 
@@ -77,7 +78,7 @@ class AutoEncoder(nn.Module):
         criterion = nn.MSELoss()
         # TODO: Try BCE loss
         #criterion = torch.nn.BCELoss()
-        optimizer = optim.SGD(self.parameters(), lr=0.005, momentum=0.9)
+        optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
 
         return criterion, optimizer
 
