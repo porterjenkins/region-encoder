@@ -1,6 +1,4 @@
 import torch
-import torchvision
-import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -24,7 +22,7 @@ class DiscriminatorMLP(nn.Module):
         h = F.relu(self.W_0(X))
         y_hat = F.sigmoid(self.W_output(h))
 
-        return y_hat
+        return y_hat, h
 
 class DiscriminatorNCF(nn.Module):
     """

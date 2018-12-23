@@ -5,6 +5,7 @@ import numpy as np
 import torch.optim as optim
 from model.AutoEncoder import AutoEncoder
 from model.GraphConvNet import GCN
+from model.discriminator import DiscriminatorMLP
 
 class LinearLayer_1(nn.Module):
     def __init__(self, n_features, out_features):
@@ -26,19 +27,14 @@ class LinearLayer_2(nn.Module):
         return y_hat
 
 
-class Discriminator(nn.Module):
-    def __init__(self):
-        super(Discriminator, self).__init__()
 
-
-
-class RegionEncoder(nn.Module):
+class RegionEncoderTest(nn.Module):
     """
     Implementatino of proposed model for
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self):
-        super(RegionEncoder, self).__init__()
+        super(RegionEncoderTest, self).__init__()
         self.l_1 = LinearLayer_1(8, 4)
         self.l_2 = LinearLayer_2(4, 1)
 
@@ -47,6 +43,30 @@ class RegionEncoder(nn.Module):
         y_hat = self.l_2.forward(h)
 
         return y_hat
+
+class RegionEncoder(nn.Module):
+    """
+    Implementatino of proposed model for
+    Multi-Modal Region Encoding (MMRE)
+    """
+    def __init__(self, n_nodes, n_nodal_features, ):
+        super(RegionEncoder, self).__init__()
+        self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features)
+        self.auto_encoder = AutoEncoder()
+        self.discriminator = DiscriminatorMLP()
+
+    def forward(self, X, A, D, img_tensor):
+        #h = self.l_1.forward(X)
+        #y_hat = self.l_2.forward(h)
+        h_graph = self.graph_conv_net.forward(X, A, D)
+        image_hat, h_image = self.auto_encoder.forward(img_tensor)
+        y_hat, h_mm = self.discriminator.forward(x=h_graph, z=h_image)
+
+
+
+
+        return y_hat
+
 
 
 n = 100
