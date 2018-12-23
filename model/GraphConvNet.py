@@ -15,7 +15,7 @@ class GCN(nn.Module):
     def __init__(self, n_nodes, n_features):
         super(GCN, self).__init__()
         self.n_nodes = n_nodes
-        self.n_features = n_feature
+        self.n_features = n_features
         # fully connected layer 1
         self.fcl_0 = nn.Linear(n_features, 8, bias=True)
         # fully connected layer 2
@@ -34,6 +34,7 @@ class GCN(nn.Module):
         H_1 = self.fcl_1(G_1)
 
         G_2 = torch.mm(torch.mm(A, torch.mm(A,D)), H_1)
+        # TODO: Add activation function??
         H_2 = self.fcl_2(G_2)
 
 
