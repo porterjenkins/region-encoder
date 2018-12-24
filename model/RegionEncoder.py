@@ -52,11 +52,14 @@ class RegionEncoder(nn.Module):
     Implementatino of proposed model for
     Multi-Modal Region Encoding (MMRE)
     """
-    def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32):
+    def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
+                 lambda_ae=.01, lambda_gcn=.01):
         super(RegionEncoder, self).__init__()
         self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph)
         self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img)
         self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_disc)
+        self.lambda_ae = lambda_ae
+        self.lambda_gcn = lambda_gcn
 
     def forward(self, X, A, D, img_tensor):
         #h = self.l_1.forward(X)
@@ -66,6 +69,44 @@ class RegionEncoder(nn.Module):
         y_hat, global_embedding = self.discriminator.forward(x=h_graph, z=h_image)
 
         return y_hat, global_embedding
+
+    def get_optimizer(self, lr):
+        optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
+
+        return optimizer
+
+    def loss_disc(self, same_region_true, same_region_pred):
+        loss_disc = nn.CrossEntropyLoss(same_region_true, same_region_pred)
+        return loss_disc.item()
+
+    def loss_gcn(self, graph_label_pred, graph_label):
+        loss_graph = nn.CrossEntropyLoss(graph_label_pred, graph_label)
+
+        return loss_graph.item()
+
+    def loss_ae(self, img_input, img_reconstruction):
+        err = img_input - img_reconstruction
+        mse = torch.mean(torch.pow(err, 2))
+
+        return mse
+
+    def loss_function(self, same_region_true, same_region_pred,  img_input, img_reconstruction,
+                      graph_label_pred, graph_label):
+        L_disc = self.loss_disc(same_region_true, same_region_pred)
+        L_ae = self.loss_ae(img_input, img_reconstruction)
+        L_gcn = self.loss_gcn(graph_label_pred, graph_label)
+
+        L = L_disc + self.lambda_ae * L_ae + self.lambda_gc * L_gcn
+
+        return L
+
+
+    def run_train_job(self, epochs, lr):
+        optimizer = self.get_optimizer(lr=lr)
+
+        for i in range(epochs):
+            pass
+
 
 if __name__ == "__main__":
     batch_size = 34
