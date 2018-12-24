@@ -12,7 +12,7 @@ class GCN(nn.Module):
         - D: Diagonal matrix (D^-1/2)
         - X: Nodal feature matrix
     """
-    def __init__(self, n_nodes, n_features):
+    def __init__(self, n_nodes, n_features, h_dim_size=16):
         super(GCN, self).__init__()
         self.n_nodes = n_nodes
         self.n_features = n_features
@@ -21,7 +21,7 @@ class GCN(nn.Module):
         # fully connected layer 2
         self.fcl_1 = nn.Linear(8, 8, bias=True)
         # fully connected layer 3
-        self.fcl_2 = nn.Linear(8, 4, bias=True)
+        self.fcl_2 = nn.Linear(8, h_dim_size, bias=True)
 
 
 
@@ -31,10 +31,10 @@ class GCN(nn.Module):
         H_0 = F.relu(self.fcl_0(G_0))
 
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
-        H_1 = self.fcl_1(G_1)
+        H_1 = F.relu(self.fcl_1(G_1))
 
         G_2 = torch.mm(torch.mm(A, torch.mm(A,D)), H_1)
-        # TODO: Add activation function??
+        # TODO: Add link/activation function??
         H_2 = self.fcl_2(G_2)
 
 
@@ -87,6 +87,6 @@ if __name__ == "__main__":
     A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
     labels = torch.from_numpy(y).type(torch.LongTensor)
 
-    gcn = GCN(n_nodes=n_nodes, n_features=2)
+    gcn = GCN(n_nodes=n_nodes, n_features=2, h_dim_size=16)
 
     gcn.run_train_job(X_train=X, y_train=labels, A_hat=A_hat, D_hat=D_hat, n_epoch=250)

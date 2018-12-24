@@ -10,7 +10,7 @@ class AutoEncoder(nn.Module):
     """
     Denoising Autoencoder implementation
     """
-    def __init__(self):
+    def __init__(self, h_dim_size=32):
         super(AutoEncoder, self).__init__()
         ### Encoder
 
@@ -23,10 +23,10 @@ class AutoEncoder(nn.Module):
         # Three fully connected layers
         self.fc1 = nn.Linear(24 * 6 * 6, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 32)
+        self.fc3 = nn.Linear(84, h_dim_size)
 
         ### Decoder
-        self.fc4 = nn.Linear(32, 84)
+        self.fc4 = nn.Linear(h_dim_size, 84)
         self.fc5 = nn.Linear(84, 120)
         self.fc6 = nn.Linear(120, 24 * 6 * 6)
         self.conv3 = nn.Conv2d(24, 6, 3)
@@ -76,7 +76,7 @@ class AutoEncoder(nn.Module):
 
     def get_optimizer(self):
         criterion = nn.MSELoss()
-        # TODO: Try BCE loss
+        # TODO: Try BCE loss?
         #criterion = torch.nn.BCELoss()
         optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
 
@@ -180,5 +180,5 @@ if __name__ == "__main__":
     dataiter = iter(trainloader)
     images, labels = dataiter.next()
 
-    auto_encoder = AutoEncoder()
+    auto_encoder = AutoEncoder(h_dim_size=16)
     auto_encoder.run_train_job(n_epoch=25, trainloader=trainloader)

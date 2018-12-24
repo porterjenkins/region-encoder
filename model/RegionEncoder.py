@@ -52,11 +52,11 @@ class RegionEncoder(nn.Module):
     Implementatino of proposed model for
     Multi-Modal Region Encoding (MMRE)
     """
-    def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32):
+    def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32):
         super(RegionEncoder, self).__init__()
-        self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features)
-        self.auto_encoder = AutoEncoder()
-        self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img)
+        self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph)
+        self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img)
+        self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_disc)
 
     def forward(self, X, A, D, img_tensor):
         #h = self.l_1.forward(X)
@@ -64,9 +64,6 @@ class RegionEncoder(nn.Module):
         h_graph = self.graph_conv_net.forward(X, A, D)
         image_hat, h_image = self.auto_encoder.forward(img_tensor)
         y_hat, global_embedding = self.discriminator.forward(x=h_graph, z=h_image)
-
-
-
 
         return y_hat, global_embedding
 

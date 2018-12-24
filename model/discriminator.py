@@ -12,10 +12,10 @@ class DiscriminatorMLP(nn.Module):
         to unify graph/image hidden states into latent
         space
     """
-    def __init__(self, x_features, z_features):
+    def __init__(self, x_features, z_features, h_dim_size=16):
         super(DiscriminatorMLP, self).__init__()
-        self.W_0 = nn.Linear(x_features + z_features, 16, bias=True)
-        self.W_output = nn.Linear(16, 1, bias=True)
+        self.W_0 = nn.Linear(x_features + z_features, h_dim_size, bias=True)
+        self.W_output = nn.Linear(h_dim_size, 1, bias=True)
 
     def forward(self, x, z):
         X = torch.cat((x, z), dim=-1)
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         if x[i, 0] > 0:
             y[i, 0] = np.random.binomial(1, .9)
 
-    mod = DiscriminatorMLP(x_features=p, z_features=p)
+    mod = DiscriminatorMLP(x_features=p, z_features=p, h_dim_size=32)
 
     x_train = torch.from_numpy(x).type(torch.FloatTensor)
     z_train = torch.from_numpy(z).type(torch.FloatTensor)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         optimizer.zero_grad()
 
         # forward + backward + optimize
-        y_hat = mod.forward(x_train, z_train)
+        y_hat, h = mod.forward(x_train, z_train)
         loss = cross_entropy(y_hat, y_train)
         loss.backward()
         optimizer.step()
@@ -73,3 +73,4 @@ if __name__ == "__main__":
         # print statistics
         loss.item()
         print("Epoch: {}, Train Loss {:.4f}".format(i, loss.item()))
+    print(h.shape)
