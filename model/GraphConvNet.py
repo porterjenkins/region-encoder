@@ -19,9 +19,9 @@ class GCN(nn.Module):
         # fully connected layer 1
         self.fcl_0 = nn.Linear(n_features, 8, bias=True)
         # fully connected layer 2
-        self.fcl_1 = nn.Linear(8, 8, bias=True)
+        self.fcl_1 = nn.Linear(8, h_dim_size, bias=True)
         # fully connected layer 3
-        self.fcl_2 = nn.Linear(8, h_dim_size, bias=True)
+        #self.fcl_2 = nn.Linear(8, h_dim_size, bias=True)
 
 
 
@@ -31,18 +31,19 @@ class GCN(nn.Module):
         H_0 = F.relu(self.fcl_0(G_0))
 
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
-        H_1 = F.relu(self.fcl_1(G_1))
+        H_1 = torch.sigmoid(self.fcl_1(G_1))
 
-        G_2 = torch.mm(torch.mm(A, torch.mm(A,D)), H_1)
+        #G_2 = torch.mm(torch.mm(A, torch.mm(A,D)), H_1)
         # TODO: Add link/activation function??
-        H_2 = self.fcl_2(G_2)
+        #H_2 = self.fcl_2(G_2)
 
 
-        return H_2
+        return H_1
+
 
     def get_optimizer(self):
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(self.parameters(), lr=0.0001, momentum=0.9)
+        optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
 
         return criterion, optimizer
 
@@ -56,8 +57,8 @@ class GCN(nn.Module):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = gcn.forward(X_train, A_hat, D_hat)
-            loss = cross_entropy(outputs, y_train)
+            H = gcn.forward(X_train, A_hat, D_hat)
+            loss = cross_entropy(H, y_train)
             loss.backward()
             optimizer.step()
 
@@ -66,12 +67,16 @@ class GCN(nn.Module):
             print("Epoch: {}, Train Loss {:.4f}".format(epoch, loss))
 
         print('Finished Training')
+        print(H)
+
 
 
 if __name__ == "__main__":
 
     A = get_adj_mtx()
     X = get_features()
+    W = get_weighted_graph(A.shape[0])
+
 
     n_nodes = X.shape[0]
     n_feature = X.shape[1]
@@ -86,6 +91,7 @@ if __name__ == "__main__":
     D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
     A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
     labels = torch.from_numpy(y).type(torch.LongTensor)
+
 
     gcn = GCN(n_nodes=n_nodes, n_features=2, h_dim_size=16)
 

@@ -69,6 +69,18 @@ def get_labels(n_samples, class_probs):
     return y
 
 
+def get_weighted_graph(n_nodes):
+    W = np.zeros(shape=(n_nodes, n_nodes))
+    for i in range(n_nodes):
+        lam = np.random.randint(2, 150, size=1)
+        W[i, :] = np.random.poisson(lam=lam, size=n_nodes)
+
+    mtx_sum = np.sum(W, axis=None)
+    W_norm = np.divide(W, mtx_sum)
+
+    return W_norm
+
+
 if __name__ == "__main__":
 
     A = get_adj_mtx()

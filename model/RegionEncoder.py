@@ -53,36 +53,65 @@ class RegionEncoder(nn.Module):
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
-                 lambda_ae=.01, lambda_gcn=.01):
+                 lambda_ae=.01, lambda_gcn=.01, lambda_edge = .01):
         super(RegionEncoder, self).__init__()
+        # Model Layers
         self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph)
         self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img)
         self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_disc)
+
+        # Model Hyperparams
         self.lambda_ae = lambda_ae
         self.lambda_gcn = lambda_gcn
+        self.lambda_edge = lambda_edge
+
+        # Canned Torch loss objects
+        self.cross_entropy = nn.CrossEntropyLoss()
 
     def forward(self, X, A, D, img_tensor):
-        #h = self.l_1.forward(X)
-        #y_hat = self.l_2.forward(h)
-        h_graph = self.graph_conv_net.forward(X, A, D)
-        image_hat, h_image = self.auto_encoder.forward(img_tensor)
-        y_hat, global_embedding = self.discriminator.forward(x=h_graph, z=h_image)
 
-        return y_hat, global_embedding
+
+        # Forward step for graph data
+        h_graph = self.graph_conv_net.forward(X, A, D)
+        graph_proximity = self._get_weighted_proximity(h_graph)
+
+        # Forward step for image data
+        image_hat, h_image = self.auto_encoder.forward(img_tensor)
+
+        # forward step for discriminator (all data)
+        y_hat, h_global = self.discriminator.forward(x=h_graph, z=h_image)
+
+        return y_hat, h_global, image_hat, graph_proximity, h_graph, h_image
+
+
+    def _get_weighted_proximity(self, h_graph):
+        """
+        compute sigmoid of similarity matrix. e.g.,:
+            1/(1 + exp(-X))
+                where X = HH'
+                and H = is an nxp matrix of node represntations
+                (each row i is an embedding vector for node i)
+        :param h_graph:
+        :return:
+        """
+        h_graph_sim = torch.mm(h_graph, torch.transpose(h_graph, 0, 1))
+        f_o_proximity = torch.sigmoid(h_graph_sim)
+        return f_o_proximity
 
     def get_optimizer(self, lr):
         optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
 
         return optimizer
 
-    def loss_disc(self, same_region_true, same_region_pred):
-        loss_disc = nn.CrossEntropyLoss(same_region_true, same_region_pred)
-        return loss_disc.item()
+    def loss_disc(self, same_region_true, h_global):
 
-    def loss_gcn(self, graph_label_pred, graph_label):
-        loss_graph = nn.CrossEntropyLoss(graph_label_pred, graph_label)
+        loss_disc = self.cross_entropy(h_global, same_region_true)
+        return loss_disc
 
-        return loss_graph.item()
+    def loss_gcn(self, h_graph, graph_label):
+        loss_graph = self.cross_entropy(h_graph, graph_label)
+
+        return loss_graph
 
     def loss_ae(self, img_input, img_reconstruction):
         err = img_input - img_reconstruction
@@ -90,77 +119,117 @@ class RegionEncoder(nn.Module):
 
         return mse
 
-    def loss_function(self, same_region_true, same_region_pred,  img_input, img_reconstruction,
-                      graph_label_pred, graph_label):
-        L_disc = self.loss_disc(same_region_true, same_region_pred)
-        L_ae = self.loss_ae(img_input, img_reconstruction)
-        L_gcn = self.loss_gcn(graph_label_pred, graph_label)
+    def loss_weighted_edges(self, learned_graph_prox, empirical_graph_prox):
+        """
+        Compute KL Divergence between learned graph proximity and empircal proximity
+        of weighted edges
+        :param learned_graph_prox:
+        :param empirical_graph_prox:
+        :return:
+        """
+        loss_ind = empirical_graph_prox * torch.log(learned_graph_prox)
+        loss_ind = torch.triu(loss_ind)
+        loss = - torch.sum(loss_ind)
 
-        L = L_disc + self.lambda_ae * L_ae + self.lambda_gc * L_gcn
+        return loss
+
+    def loss_function(self, same_region_true, h_global,  img_input, img_reconstruction,
+                      h_graph, graph_label, learned_graph_prox, emp_graph_prox):
+        """
+        Global loss function for model. Loss has the following components:
+            - Reconstruction of spatial graph
+            - Prediction of flow graph
+            - Reconstruction of image
+            - Error of the discriminator
+
+
+        :param same_region_true:
+        :param same_region_pred:
+        :param img_input:
+        :param img_reconstruction:
+        :param graph_label_pred:
+        :param graph_label:
+        :return:
+        """
+        L_gcn = self.loss_gcn(h_graph, graph_label)
+        L_edge_weights = self.loss_weighted_edges(learned_graph_prox, emp_graph_prox)
+        L_disc = self.loss_disc(same_region_true, h_global)
+        L_ae = self.loss_ae(img_input, img_reconstruction)
+
+
+        L = L_disc + self.lambda_ae * L_ae + self.lambda_gcn * L_gcn + self.lambda_edge * L_edge_weights
+        #L = L_disc + self.lambda_ae * L_ae + self.lambda_edge * L_edge_weights
+
 
         return L
 
 
     def run_train_job(self, epochs, lr):
         optimizer = self.get_optimizer(lr=lr)
+        batch_size = 34
+
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        trainset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=True,
+                                                download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                  shuffle=True, num_workers=2)
+
+        testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
+                                               download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                 shuffle=False, num_workers=2)
+
+        A = get_adj_mtx()
+        X = get_features()
+        W = get_weighted_graph(A.shape[0])
+
+        D_hat = get_degree_mtx(A)
+        A_hat = get_a_hat(A)
+
+        graph_label = get_labels(n_samples=X.shape[0], class_probs=[.2, .5, .2, .1])
+
+        graph_label = torch.from_numpy(graph_label).type(torch.LongTensor)
+
+        X = torch.from_numpy(X).type(torch.FloatTensor)
+        W = torch.from_numpy(W).type(torch.FloatTensor)
+
+        D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
+        A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
+
+        dataiter = iter(trainloader)
+        images, labels = dataiter.next()
+
+        Y = torch.ones(batch_size, dtype=torch.long)
+        Y[0] = 0
 
         for i in range(epochs):
-            pass
+            running_loss = 0.0
+            optimizer.zero_grad()
+
+            y_hat, h, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat,
+                                                                                 img_tensor=images)
+
+
+            loss = mod.loss_function(same_region_true=Y, h_global=h, img_input=images, img_reconstruction=image_hat,
+                                     h_graph=h_graph, graph_label=graph_label, learned_graph_prox=graph_proximity,
+                                     emp_graph_prox=W)
+
+            # loss = cross_entropy(y_hat, y_train)
+            loss.backward()
+            optimizer.step()
+            # print statistics
+            # loss.item()
+            print("Epoch: {}, Train Loss {:.4f}".format(i, loss.item()))
+
 
 
 if __name__ == "__main__":
-    batch_size = 34
-
-    transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-    trainset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=True,
-                                            download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                              shuffle=True, num_workers=2)
-
-    testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
-                                           download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                             shuffle=False, num_workers=2)
-
-    A = get_adj_mtx()
-    X = get_features()
-
-    n_nodes = X.shape[0]
-    n_feature = X.shape[1]
-
-    D_hat = get_degree_mtx(A)
-    A_hat = get_a_hat(A)
-
-    y = get_labels(n_samples=X.shape[0], class_probs=[.2, .5, .2, .1])
-
-    A = torch.from_numpy(A).type(torch.FloatTensor)
-    X = torch.from_numpy(X).type(torch.FloatTensor)
-    D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
-    A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
-
-    dataiter = iter(trainloader)
-    images, labels = dataiter.next()
-
-    mod = RegionEncoder(n_nodes=batch_size, n_nodal_features=2)
-
-    optimizer = optim.SGD(mod.parameters(), lr=0.1, momentum=0.9)
-    cross_entropy = torch.nn.BCELoss()
-    n_epoch = 100
-
-    optimizer.zero_grad()
 
     # forward + backward + optimize
-    #y_hat = mod.forward(X_train)
-    y_hat, h = mod.forward(X=X, A=A_hat, D=D_hat, img_tensor=images)
-    print(y_hat)
-    print(h)
-    #loss = cross_entropy(y_hat, y_train)
-    #loss.backward()
-    #optimizer.step()
 
-    # print statistics
-    #loss.item()
-    #print("Epoch: {}, Train Loss {:.4f}".format(i, loss.item()))
+    mod = RegionEncoder(n_nodes=34, n_nodal_features=2)
+    mod.run_train_job(epochs=100, lr=.01)
+
