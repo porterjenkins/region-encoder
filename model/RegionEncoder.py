@@ -177,10 +177,10 @@ class RegionEncoder(nn.Module):
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                                   shuffle=True, num_workers=2)
 
-        testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
-                                               download=True, transform=transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                 shuffle=False, num_workers=2)
+        #testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
+        #                                       download=True, transform=transform)
+        #testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+        #                                         shuffle=False, num_workers=2)
 
         A = get_adj_mtx()
         X = get_features()
@@ -206,9 +206,9 @@ class RegionEncoder(nn.Module):
         Y[0] = 0
 
         for i in range(epochs):
-            running_loss = 0.0
-            optimizer.zero_grad()
 
+            optimizer.zero_grad()
+            # forward + backward + optimize
             y_hat, h, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat,
                                                                                  img_tensor=images)
 
@@ -222,14 +222,12 @@ class RegionEncoder(nn.Module):
             optimizer.step()
             # print statistics
             # loss.item()
-            print("Epoch: {}, Train Loss {:.4f}".format(i, loss.item()))
+            print("Epoch: {}, Train Loss {:.4f}".format(i+1, loss.item()))
 
 
 
 if __name__ == "__main__":
 
-    # forward + backward + optimize
-
     mod = RegionEncoder(n_nodes=34, n_nodal_features=2)
-    mod.run_train_job(epochs=100, lr=.01)
+    mod.run_train_job(epochs=250, lr=.01)
 

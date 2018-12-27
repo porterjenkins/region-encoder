@@ -12,8 +12,9 @@ class GCN(nn.Module):
         - D: Diagonal matrix (D^-1/2)
         - X: Nodal feature matrix
     """
-    def __init__(self, n_nodes, n_features, h_dim_size=16):
+    def __init__(self, n_nodes, n_features, n_classes, h_dim_size=None):
         super(GCN, self).__init__()
+        h_dim_size = n_classes
         self.n_nodes = n_nodes
         self.n_features = n_features
         # fully connected layer 1
@@ -21,7 +22,7 @@ class GCN(nn.Module):
         # fully connected layer 2
         self.fcl_1 = nn.Linear(8, h_dim_size, bias=True)
         # fully connected layer 3
-        #self.fcl_2 = nn.Linear(8, h_dim_size, bias=True)
+        #self.fcl_2 = nn.Linear(h_dim_size, h_dim_size, bias=True)
 
 
 
@@ -31,7 +32,7 @@ class GCN(nn.Module):
         H_0 = F.relu(self.fcl_0(G_0))
 
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
-        H_1 = torch.sigmoid(self.fcl_1(G_1))
+        H_1 = self.fcl_1(G_1)
 
         #G_2 = torch.mm(torch.mm(A, torch.mm(A,D)), H_1)
         # TODO: Add link/activation function??
@@ -42,7 +43,7 @@ class GCN(nn.Module):
 
 
     def get_optimizer(self):
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCEWithLogitsLoss()
         optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
 
         return criterion, optimizer
@@ -90,9 +91,9 @@ if __name__ == "__main__":
     X = torch.from_numpy(X).type(torch.FloatTensor)
     D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
     A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
-    labels = torch.from_numpy(y).type(torch.LongTensor)
+    labels = torch.from_numpy(y).type(torch.FloatTensor)
 
-
-    gcn = GCN(n_nodes=n_nodes, n_features=2, h_dim_size=16)
+    C = labels.shape[1]
+    gcn = GCN(n_nodes=n_nodes, n_features=2, n_classes=C, h_dim_size=16)
 
     gcn.run_train_job(X_train=X, y_train=labels, A_hat=A_hat, D_hat=D_hat, n_epoch=250)

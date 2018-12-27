@@ -59,12 +59,12 @@ def get_features():
 def get_labels(n_samples, class_probs):
     n_classes = len(class_probs)
     classes = range(n_classes)
-    y = np.zeros(shape=(n_samples))
+    y = np.zeros(shape=(n_samples, n_classes))
 
     for i in range(n_samples):
 
         label = np.random.choice(classes, p=class_probs)
-        y[i] = label
+        y[i, label] = 1
 
     return y
 
