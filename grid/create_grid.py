@@ -192,7 +192,7 @@ class RegionGrid:
 
         return "{},{}".format(x_idx, y_idx)
 
-    def create_flow_matrix(self, fname):
+    def create_flow_matrix(self, fname, n_rows=None):
 
         n_regions = self.grid_size**2
         flow_matrix = numpy.zeros((n_regions, n_regions))
@@ -210,7 +210,7 @@ class RegionGrid:
         with open(fname, 'r') as f:
             for row in f:
                 data = row.split(",")
-                #print(data)
+
 
                 if row_cntr == 0:
                     headers = data
@@ -235,11 +235,17 @@ class RegionGrid:
 
                             if sample_cnt % 10000 == 0:
                                 print("{}: {}, {} --> {}".format(row_cntr, sample_cnt, trip_pickup,trip_drop))
+
+                            if n_rows is not None:
+                                if sample_cnt >= n_rows:
+                                    break
+
                         except ValueError:
                             pass
 
                 row_cntr += 1
 
+        return flow_matrix
 
 
 class Region:
