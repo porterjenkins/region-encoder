@@ -168,12 +168,22 @@ class RegionGrid:
         return feature_matrix
 
     def _cast_coor(self, lat_lon):
+        """
+        Cast the elements of a tuple (lat_lon) to float
+        :param lat_lon: (tuple) latitude, longitude pair
+        :return: (tuple) latitude, longitude pair as float
+        """
         lat = float(lat_lon[0])
         lon = float(lat_lon[1])
 
         return (lat, lon)
 
     def _iscomplete(self, lat_lon):
+        """
+        Function to identify complete coordinate data for both drop-off and pickup
+        :param lat_lon: (tuple) latitude, longitude pair
+        :return: bool
+        """
 
         if lat_lon[0] != '' and lat_lon[1] != '':
             return True
@@ -181,6 +191,12 @@ class RegionGrid:
             return False
 
     def _map_to_region(self, lat_lon):
+        """
+        Map a given lat/lon pair to correct region
+            - This function uses a quick constant time O(1) algorithm to map trip to region
+        :param lat_lon: (tuple) latitude, longitude pair
+        :return: (str) x, y indices of correct region as a csv
+        """
         x = lat_lon[0]
         y = lat_lon[1]
 
@@ -193,6 +209,13 @@ class RegionGrid:
         return "{},{}".format(x_idx, y_idx)
 
     def create_flow_matrix(self, fname, n_rows=None):
+        """
+        Generated a weighted matrix (dims: grid_size**2 x grid_size) from taxi flow data
+
+        :param fname: (str) file name to query for taxi flow
+        :param n_rows: (int) optional: only take first n rows from file
+        :return: (np.array) 2-d weighted flow matrix
+        """
 
         n_regions = self.grid_size**2
         flow_matrix = numpy.zeros((n_regions, n_regions))
