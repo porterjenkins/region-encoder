@@ -212,6 +212,7 @@ class RegionGrid:
         """
         Generated a weighted matrix (dims: grid_size**2 x grid_size) from taxi flow data
          (https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew)
+            - raw data has approx 99M rows
 
         :param fname: (str) file name to query for taxi flow
         :param n_rows: (int) optional: only take first n rows from file
@@ -324,8 +325,6 @@ if __name__ == '__main__':
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
-
-    W = region_grid.create_flow_matrix(c['raw_flow_file'])
 
     r = region_grid.regions['25,25']
     print(region_grid.feature_matrix[r.id])
