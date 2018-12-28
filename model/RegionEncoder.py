@@ -17,7 +17,7 @@ class RegionEncoder(nn.Module):
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
-                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1):
+                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01):
         super(RegionEncoder, self).__init__()
         # Model Layers
         self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph, n_classes=4)
@@ -28,6 +28,7 @@ class RegionEncoder(nn.Module):
         self.lambda_ae = lambda_ae
         self.lambda_g = lambda_g
         self.lambda_edge = lambda_edge
+        self.lambda_wd = lambda_weight_decay
 
         # Canned Torch loss objects
         self.cross_entropy = nn.CrossEntropyLoss()
@@ -62,6 +63,20 @@ class RegionEncoder(nn.Module):
         h_graph_sim = torch.mm(h_graph, torch.transpose(h_graph, 0, 1))
         f_o_proximity = torch.sigmoid(h_graph_sim)
         return f_o_proximity
+
+    def weight_decay(self):
+        #w_0 = self.graph_conv_net.fcl_0.weight.data
+        #tmp = torch.norm(w_0, p='fro')
+
+        reg = 0
+
+
+        for p in self.parameters():
+            layer = p.data
+
+            reg += self.lambda_wd * torch.norm(layer)
+
+        return reg
 
     def get_optimizer(self, lr):
         optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
@@ -131,7 +146,9 @@ class RegionEncoder(nn.Module):
         L_ae = self.loss_ae(img_input, img_reconstruction)
 
 
-        L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights
+        regularizer = self.weight_decay()
+
+        L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights + regularizer
 
 
 
@@ -222,5 +239,5 @@ class RegionEncoder(nn.Module):
 if __name__ == "__main__":
 
     mod = RegionEncoder(n_nodes=34, n_nodal_features=2, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    mod.run_train_job(epochs=250, lr=.1)
+    mod.run_train_job(epochs=250, lr=.05)
 
