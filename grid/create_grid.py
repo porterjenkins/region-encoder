@@ -211,6 +211,7 @@ class RegionGrid:
     def create_flow_matrix(self, fname, n_rows=None):
         """
         Generated a weighted matrix (dims: grid_size**2 x grid_size) from taxi flow data
+         (https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew)
 
         :param fname: (str) file name to query for taxi flow
         :param n_rows: (int) optional: only take first n rows from file
@@ -219,7 +220,7 @@ class RegionGrid:
 
         n_regions = self.grid_size**2
         flow_matrix = numpy.zeros((n_regions, n_regions))
-        # index given by chicago data portal docs (https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew)
+        # index given by chicago data portal docs
         drop_lat_idx = 20
         drop_lon_idx = 21
         pickup_lat_idx = 17
