@@ -146,9 +146,9 @@ class RegionEncoder(nn.Module):
         L_ae = self.loss_ae(img_input, img_reconstruction)
 
 
-        regularizer = self.weight_decay()
+        #regularizer = self.weight_decay()
 
-        L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights + regularizer
+        L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights
 
 
 

@@ -167,6 +167,80 @@ class RegionGrid:
 
         return feature_matrix
 
+    def _cast_coor(self, lat_lon):
+        lat = float(lat_lon[0])
+        lon = float(lat_lon[1])
+
+        return (lat, lon)
+
+    def _iscomplete(self, lat_lon):
+
+        if lat_lon[0] != '' and lat_lon[1] != '':
+            return True
+        else:
+            return False
+
+    def _map_to_region(self, lat_lon):
+        x = lat_lon[0]
+        y = lat_lon[1]
+
+        width = self.x_space[1] - self.x_space[0]
+        heigth = self.y_space[1] - self.y_space[0]
+
+        x_idx = int((x - self.x_space[0])/width)
+        y_idx = int((y - self.y_space[0]) / heigth)
+
+        return "{},{}".format(x_idx, y_idx)
+
+    def create_flow_matrix(self, fname):
+
+        n_regions = self.grid_size**2
+        flow_matrix = numpy.zeros((n_regions, n_regions))
+        # index given by chicago data portal docs (https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew)
+        drop_lat_idx = 20
+        drop_lon_idx = 21
+        pickup_lat_idx = 17
+        pickup_lon_idx = 18
+
+        matrix_idx_map = dict(zip(list(self.regions.keys()), range(n_regions)))
+
+
+        sample_cnt = 0
+        row_cntr = 0
+        with open(fname, 'r') as f:
+            for row in f:
+                data = row.split(",")
+                #print(data)
+
+                if row_cntr == 0:
+                    headers = data
+
+                else:
+                    trip_pickup = (data[pickup_lat_idx], data[pickup_lon_idx])
+                    trip_drop = (data[drop_lat_idx], data[drop_lon_idx])
+
+                    if self._iscomplete(trip_pickup) and self._iscomplete(trip_drop):
+                        try:
+                            trip_pickup = self._cast_coor(trip_pickup)
+                            trip_drop = self._cast_coor(trip_drop)
+
+                            pickup_region = self._map_to_region(trip_pickup)
+                            drop_region = self._map_to_region(trip_drop)
+
+                            p_idx = matrix_idx_map[pickup_region]
+                            d_idx = matrix_idx_map[drop_region]
+
+                            flow_matrix[p_idx, d_idx] += 1.0
+                            sample_cnt += 1
+
+                            if sample_cnt % 10000 == 0:
+                                print("{}: {}, {} --> {}".format(row_cntr, sample_cnt, trip_pickup,trip_drop))
+                        except ValueError:
+                            pass
+
+                row_cntr += 1
+
+
 
 class Region:
 
@@ -220,6 +294,8 @@ if __name__ == '__main__':
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
+
+    W = region_grid.create_flow_matrix(c['raw_flow_file'])
 
     r = region_grid.regions['25,25']
     print(region_grid.feature_matrix[r.id])
