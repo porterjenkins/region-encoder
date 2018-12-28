@@ -12,16 +12,15 @@ class GCN(nn.Module):
         - D: Diagonal matrix (D^-1/2)
         - X: Nodal feature matrix
     """
-    def __init__(self, n_nodes, n_features, h_dim_size=16):
+    def __init__(self, n_nodes, n_features, n_classes, h_dim_size=16):
         super(GCN, self).__init__()
         self.n_nodes = n_nodes
         self.n_features = n_features
         # fully connected layer 1
-        self.fcl_0 = nn.Linear(n_features, 8, bias=True)
-        # fully connected layer 2
-        self.fcl_1 = nn.Linear(8, h_dim_size, bias=True)
-        # fully connected layer 3
-        #self.fcl_2 = nn.Linear(8, h_dim_size, bias=True)
+        self.fcl_0 = nn.Linear(n_features, h_dim_size, bias=True)
+        # Output layer for link prediction
+        self.fcl_1 = nn.Linear(h_dim_size, 2, bias=True)
+        #self.out_layer = nn.Linear(8, 2, bias=True)
 
 
 
@@ -31,19 +30,14 @@ class GCN(nn.Module):
         H_0 = F.relu(self.fcl_0(G_0))
 
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
-        H_1 = torch.sigmoid(self.fcl_1(G_1))
+        output_logits = self.fcl_1(G_1)
 
-        #G_2 = torch.mm(torch.mm(A, torch.mm(A,D)), H_1)
-        # TODO: Add link/activation function??
-        #H_2 = self.fcl_2(G_2)
-
-
-        return H_1
+        return output_logits, H_0
 
 
     def get_optimizer(self):
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
+        optimizer = optim.SGD(self.parameters(), lr=0.1, momentum=0.9)
 
         return criterion, optimizer
 
@@ -57,8 +51,8 @@ class GCN(nn.Module):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            H = gcn.forward(X_train, A_hat, D_hat)
-            loss = cross_entropy(H, y_train)
+            output, H = gcn.forward(X_train, A_hat, D_hat)
+            loss = cross_entropy(output, y_train)
             loss.backward()
             optimizer.step()
 
@@ -93,6 +87,6 @@ if __name__ == "__main__":
     labels = torch.from_numpy(y).type(torch.LongTensor)
 
 
-    gcn = GCN(n_nodes=n_nodes, n_features=2, h_dim_size=16)
+    gcn = GCN(n_nodes=n_nodes, n_features=2, n_classes=4, h_dim_size=16)
 
     gcn.run_train_job(X_train=X, y_train=labels, A_hat=A_hat, D_hat=D_hat, n_epoch=250)

@@ -15,14 +15,17 @@ class DiscriminatorMLP(nn.Module):
     def __init__(self, x_features, z_features, h_dim_size=16):
         super(DiscriminatorMLP, self).__init__()
         self.W_0 = nn.Linear(x_features + z_features, h_dim_size, bias=True)
-        self.W_output = nn.Linear(h_dim_size, 1, bias=True)
+        self.W_output = nn.Linear(h_dim_size, 2, bias=True)
 
-    def forward(self, x, z):
+    def forward(self, x, z, activation=True):
         X = torch.cat((x, z), dim=-1)
         h = F.relu(self.W_0(X))
-        y_hat = F.sigmoid(self.W_output(h))
+        if activation:
+            output = F.sigmoid(self.W_output(h))
+        else:
+            output = self.W_output(h)
 
-        return y_hat, h
+        return output, h
 
 class DiscriminatorNCF(nn.Module):
     """

@@ -10,78 +10,43 @@ import torchvision
 import torchvision.transforms as transforms
 from model.get_karate_data import *
 
-class LinearLayer_1(nn.Module):
-    def __init__(self, n_features, out_features):
-        super(LinearLayer_1, self).__init__()
-        self.lin_layer = nn.Linear(n_features, out_features, bias=True)
-
-    def forward(self, x):
-        h = F.relu(self.lin_layer(x))
-        return h
-
-
-class LinearLayer_2(nn.Module):
-    def __init__(self, n_features, out_features):
-        super(LinearLayer_2, self).__init__()
-        self.lin_layer = nn.Linear(n_features, out_features, bias=True)
-
-    def forward(self, h):
-        y_hat = torch.sigmoid(self.lin_layer(h))
-        return y_hat
-
-
-
-class RegionEncoderTest(nn.Module):
-    """
-    Implementatino of proposed model for
-    Multi-Modal Region Encoding (MMRE)
-    """
-    def __init__(self):
-        super(RegionEncoderTest, self).__init__()
-        self.l_1 = LinearLayer_1(8, 4)
-        self.l_2 = LinearLayer_2(4, 1)
-
-    def forward(self, X):
-        h = self.l_1.forward(X)
-        y_hat = self.l_2.forward(h)
-
-        return y_hat
 
 class RegionEncoder(nn.Module):
     """
-    Implementatino of proposed model for
+    Implementation of proposed model for
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
-                 lambda_ae=.01, lambda_gcn=.01, lambda_edge = .01):
+                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1):
         super(RegionEncoder, self).__init__()
         # Model Layers
-        self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph)
+        self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph, n_classes=4)
         self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img)
         self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_disc)
 
         # Model Hyperparams
         self.lambda_ae = lambda_ae
-        self.lambda_gcn = lambda_gcn
+        self.lambda_g = lambda_g
         self.lambda_edge = lambda_edge
 
         # Canned Torch loss objects
         self.cross_entropy = nn.CrossEntropyLoss()
+        self.bce_logits = nn.BCEWithLogitsLoss()
 
     def forward(self, X, A, D, img_tensor):
 
 
         # Forward step for graph data
-        h_graph = self.graph_conv_net.forward(X, A, D)
+        graph_logits, h_graph = self.graph_conv_net.forward(X, A, D)
         graph_proximity = self._get_weighted_proximity(h_graph)
 
         # Forward step for image data
         image_hat, h_image = self.auto_encoder.forward(img_tensor)
 
         # forward step for discriminator (all data)
-        y_hat, h_global = self.discriminator.forward(x=h_graph, z=h_image)
+        logits, h_global = self.discriminator.forward(x=h_graph, z=h_image, activation=False)
 
-        return y_hat, h_global, image_hat, graph_proximity, h_graph, h_image
+        return logits, h_global, image_hat, graph_proximity, h_graph, graph_logits, h_image
 
 
     def _get_weighted_proximity(self, h_graph):
@@ -103,9 +68,18 @@ class RegionEncoder(nn.Module):
 
         return optimizer
 
-    def loss_disc(self, same_region_true, h_global):
+    def loss_graph(self, graph_logits, gamma):
+        """
 
-        loss_disc = self.cross_entropy(h_global, same_region_true)
+        :param graph_logits:
+        :param gamma:
+        :return:
+        """
+        loss_g = self.bce_logits(graph_logits, gamma)
+        return loss_g
+
+    def loss_disc(self, eta, eta_logits):
+        loss_disc = self.bce_logits(eta_logits, eta)
         return loss_disc
 
     def loss_gcn(self, h_graph, graph_label):
@@ -133,8 +107,8 @@ class RegionEncoder(nn.Module):
 
         return loss
 
-    def loss_function(self, same_region_true, h_global,  img_input, img_reconstruction,
-                      h_graph, graph_label, learned_graph_prox, emp_graph_prox):
+    def loss_function(self, eta, eta_logits,  img_input, img_reconstruction,
+                      h_graph, graph_logits, gamma, learned_graph_prox, emp_graph_prox):
         """
         Global loss function for model. Loss has the following components:
             - Reconstruction of spatial graph
@@ -142,23 +116,23 @@ class RegionEncoder(nn.Module):
             - Reconstruction of image
             - Error of the discriminator
 
-
-        :param same_region_true:
-        :param same_region_pred:
+        :param eta:
+        :param eta_logits:
         :param img_input:
         :param img_reconstruction:
         :param graph_label_pred:
         :param graph_label:
         :return:
         """
-        L_gcn = self.loss_gcn(h_graph, graph_label)
+        #L_gcn = self.loss_gcn(h_graph, graph_label)
+        L_graph = self.loss_graph(graph_logits, gamma)
         L_edge_weights = self.loss_weighted_edges(learned_graph_prox, emp_graph_prox)
-        L_disc = self.loss_disc(same_region_true, h_global)
+        L_disc = self.loss_disc(eta, eta_logits)
         L_ae = self.loss_ae(img_input, img_reconstruction)
 
 
-        L = L_disc + self.lambda_ae * L_ae + self.lambda_gcn * L_gcn + self.lambda_edge * L_edge_weights
-        #L = L_disc + self.lambda_ae * L_ae + self.lambda_edge * L_edge_weights
+        L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights
+
 
 
         return L
@@ -202,19 +176,38 @@ class RegionEncoder(nn.Module):
         dataiter = iter(trainloader)
         images, labels = dataiter.next()
 
-        Y = torch.ones(batch_size, dtype=torch.long)
-        Y[0] = 0
+        eta = torch.zeros((batch_size, 2), dtype=torch.float)
+        gamma = torch.zeros((batch_size, 2), dtype=torch.float)
+
+        for i in range(batch_size):
+            alpha = np.random.rand()
+            beta = np.random.rand()
+
+            if alpha < .25:
+                eta[i, 1] = 1
+            else:
+                eta[i, 0] = 1
+
+
+            if beta < .33:
+                gamma[i, 1] = 1
+            else:
+                gamma[i, 0] = 1
+
+
 
         for i in range(epochs):
 
             optimizer.zero_grad()
             # forward + backward + optimize
-            y_hat, h, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat,
-                                                                                 img_tensor=images)
+            logits, h_global, image_hat, graph_proximity, h_graph, graph_logits, h_image = mod.forward(X=X, A=A_hat,
+                                                                                                       D=D_hat,
+                                                                                                       img_tensor=images)
 
 
-            loss = mod.loss_function(same_region_true=Y, h_global=h, img_input=images, img_reconstruction=image_hat,
-                                     h_graph=h_graph, graph_label=graph_label, learned_graph_prox=graph_proximity,
+            loss = mod.loss_function(eta=eta, eta_logits=logits, img_input=images, img_reconstruction=image_hat,
+                                     h_graph=h_graph, graph_logits=graph_logits, gamma=gamma,
+                                     learned_graph_prox=graph_proximity,
                                      emp_graph_prox=W)
 
             # loss = cross_entropy(y_hat, y_train)
@@ -228,6 +221,6 @@ class RegionEncoder(nn.Module):
 
 if __name__ == "__main__":
 
-    mod = RegionEncoder(n_nodes=34, n_nodal_features=2)
-    mod.run_train_job(epochs=250, lr=.01)
+    mod = RegionEncoder(n_nodes=34, n_nodal_features=2, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
+    mod.run_train_job(epochs=250, lr=.1)
 
