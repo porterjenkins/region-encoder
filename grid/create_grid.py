@@ -1,6 +1,11 @@
+import os
 import pickle
+import sys
 
 import numpy
+
+# this should add files properly
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from config import get_config
 
