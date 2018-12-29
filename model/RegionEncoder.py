@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
 import torch.optim as optim
 from model.AutoEncoder import AutoEncoder
 from model.GraphConvNet import GCN
@@ -9,6 +7,13 @@ from model.discriminator import DiscriminatorMLP
 import torchvision
 import torchvision.transforms as transforms
 from model.get_karate_data import *
+import sys
+import os
+from config import get_config
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from grid.create_grid import RegionGrid
+
+
 
 
 class RegionEncoder(nn.Module):
@@ -238,6 +243,10 @@ class RegionEncoder(nn.Module):
 
 if __name__ == "__main__":
 
+    c = get_config()
+    file = open(c["poi_file"], 'rb')
+    region_grid = RegionGrid(file, 50, c['flow_mtx_file'])
+
     mod = RegionEncoder(n_nodes=34, n_nodal_features=2, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    mod.run_train_job(epochs=250, lr=.05)
+    #mod.run_train_job(epochs=250, lr=.05)
 

@@ -2,7 +2,6 @@ import os
 import pickle
 import sys
 import numpy
-
 # this should add files properly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -348,5 +347,7 @@ if __name__ == '__main__':
         print(region_grid.categories[cat])
 
     W = region_grid.weighted_mtx
-    print(W)
+    print(W.shape)
+    print(A.shape)
+    print(D.shape)
 
