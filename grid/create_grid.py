@@ -1,7 +1,6 @@
 import os
 import pickle
 import sys
-
 import numpy
 
 # this should add files properly
@@ -12,7 +11,7 @@ from config import get_config
 
 class RegionGrid:
 
-    def __init__(self, poi_file, grid_size=100):
+    def __init__(self, poi_file, grid_size=100, w_mtx_file=None):
 
         poi = pickle.load(poi_file)
         rect, self.categories = RegionGrid.handle_poi(poi)
@@ -25,6 +24,10 @@ class RegionGrid:
                                                                                       self.y_space)
         self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
+
+        if w_mtx_file is not None and os.path.isfile(w_mtx_file):
+            self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
+
 
     def load_poi(self, poi):
         x_space = self.x_space
@@ -278,6 +281,13 @@ class RegionGrid:
         return flow_matrix
 
 
+    def load_weighted_mtx(self, fname):
+        with open(fname, 'rb') as f:
+            W = pickle.load(f)
+
+        return W
+
+
 class Region:
 
     def __init__(self, index, id, points):
@@ -326,7 +336,7 @@ class Region:
 if __name__ == '__main__':
     c = get_config()
     file = open(c["poi_file"], 'rb')
-    region_grid = RegionGrid(file, 50)
+    region_grid = RegionGrid(file, 50, c['flow_mtx_file'])
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
@@ -336,3 +346,7 @@ if __name__ == '__main__':
     print(numpy.nonzero(region_grid.feature_matrix[r.id]))
     for cat in region_grid.regions[r.index].categories:
         print(region_grid.categories[cat])
+
+    W = region_grid.weighted_mtx
+    print(W)
+
