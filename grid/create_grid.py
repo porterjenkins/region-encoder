@@ -11,7 +11,6 @@ from config import get_config
 class RegionGrid:
 
     def __init__(self, poi_file, grid_size=100, w_mtx_file=None):
-
         poi = pickle.load(poi_file)
         rect, self.categories = RegionGrid.handle_poi(poi)
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
@@ -23,9 +22,12 @@ class RegionGrid:
                                                                                       self.y_space)
         self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
+        self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
 
         if w_mtx_file is not None and os.path.isfile(w_mtx_file):
             self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
+
+
 
 
     def load_poi(self, poi):
@@ -234,7 +236,6 @@ class RegionGrid:
         pickup_lat_idx = 17
         pickup_lon_idx = 18
 
-        matrix_idx_map = dict(zip(list(self.regions.keys()), range(n_regions)))
 
 
         sample_cnt = 0
@@ -259,8 +260,8 @@ class RegionGrid:
                             pickup_region = self._map_to_region(trip_pickup)
                             drop_region = self._map_to_region(trip_drop)
 
-                            p_idx = matrix_idx_map[pickup_region]
-                            d_idx = matrix_idx_map[drop_region]
+                            p_idx = self.matrix_idx_map[pickup_region]
+                            d_idx = self.matrix_idx_map[drop_region]
 
                             flow_matrix[p_idx, d_idx] += 1.0
                             sample_cnt += 1

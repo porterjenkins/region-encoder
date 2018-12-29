@@ -159,10 +159,68 @@ class RegionEncoder(nn.Module):
 
         return L
 
+    def __preprocess_adj(self, A):
+        n = A.shape[0]
 
-    def run_train_job(self, epochs, lr):
+        return A + np.eye(n)
+
+
+    def __preprocess_degree(self, D):
+        # get D^-1/2
+        D = np.linalg.inv(D)
+        D = np.power(D, .5)
+
+        return D
+
+    def __get_eta(self, batch_size):
+        eta = torch.zeros((batch_size, 2), dtype=torch.float)
+        for i in range(batch_size):
+            alpha = np.random.rand()
+
+            if alpha < .25:
+                eta[i, 1] = 1
+            else:
+                eta[i, 0] = 1
+
+        return eta
+
+    def __get_gamma(self, batch_size):
+        gamma = torch.zeros((batch_size, 2), dtype=torch.float)
+
+        for i in range(batch_size):
+            beta = np.random.rand()
+
+            if beta < .33:
+                gamma[i, 1] = 1
+            else:
+                gamma[i, 0] = 1
+
+        return gamma
+
+    def run_train_job(self,region_grid, epochs, lr):
+
         optimizer = self.get_optimizer(lr=lr)
-        batch_size = 34
+
+        A = region_grid.adj_matrix
+        D = region_grid.degree_matrix
+        W = region_grid.weighted_mtx
+        X = region_grid.feature_matrix
+
+        # preprocess step for graph matrices
+        A_hat = self.__preprocess_adj(A)
+        D_hat = self.__preprocess_degree(D)
+
+        # Cast matrices to torch.tensor
+        A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
+        D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
+        W = torch.from_numpy(W).type(torch.FloatTensor)
+        X = torch.from_numpy(X).type(torch.FloatTensor)
+
+        batch_size = A.shape[0]
+
+        region_mtx_map = region_grid.matrix_idx_map
+
+        """
 
         transform = transforms.Compose(
             [transforms.ToTensor(),
@@ -198,23 +256,13 @@ class RegionEncoder(nn.Module):
         dataiter = iter(trainloader)
         images, labels = dataiter.next()
 
-        eta = torch.zeros((batch_size, 2), dtype=torch.float)
-        gamma = torch.zeros((batch_size, 2), dtype=torch.float)
+        """
 
-        for i in range(batch_size):
-            alpha = np.random.rand()
-            beta = np.random.rand()
+        # Ground truth for discriminator
+        eta = self.__get_eta(batch_size)
+        # ground truth for spatial reconstruction
+        gamma = self.__get_gamma(batch_size)
 
-            if alpha < .25:
-                eta[i, 1] = 1
-            else:
-                eta[i, 0] = 1
-
-
-            if beta < .33:
-                gamma[i, 1] = 1
-            else:
-                gamma[i, 0] = 1
 
 
 
@@ -248,5 +296,5 @@ if __name__ == "__main__":
     region_grid = RegionGrid(file, 50, c['flow_mtx_file'])
 
     mod = RegionEncoder(n_nodes=34, n_nodal_features=2, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    #mod.run_train_job(epochs=250, lr=.05)
+    mod.run_train_job(region_grid, epochs=100, lr=.05)
 
