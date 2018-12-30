@@ -206,14 +206,14 @@ class RegionEncoder(nn.Module):
         neg_sample_map = dict()
 
         for id, mtx_idx in idx_map.items():
-            neg_sample_map[id] = list()
+            neg_sample_map[mtx_idx] = list()
             for k in range(n_neg_samples):
                 get_neg_sample = True
                 while get_neg_sample:
                     neg_sample_idx = np.random.randint(0, n_nodes)
                     if adj_mtx[mtx_idx, neg_sample_idx] == 0:
                         get_neg_sample = False
-                        neg_sample_map[id].append(neg_sample_idx)
+                        neg_sample_map[mtx_idx].append(neg_sample_idx)
 
         return neg_sample_map
 
@@ -223,7 +223,7 @@ class RegionEncoder(nn.Module):
 
 
 
-    def run_train_job(self,region_grid, epochs, lr, n_neg_sampels=15):
+    def run_train_job(self,region_grid, epochs, lr, n_neg_samples=15):
 
         optimizer = self.get_optimizer(lr=lr)
 
@@ -251,11 +251,9 @@ class RegionEncoder(nn.Module):
         # ground truth for spatial reconstruction
         gamma = self.__get_gamma(batch_size)
 
-
-
         for i in range(epochs):
 
-
+            gcn_neg_samples = self.__gen_neg_samples_gcn(n_neg_samples, A, region_mtx_map)
 
             optimizer.zero_grad()
             # forward + backward + optimize
