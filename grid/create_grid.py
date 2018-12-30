@@ -18,11 +18,12 @@ class RegionGrid:
         self.grid_size = grid_size
         self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], grid_size)
         self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], grid_size)
-        self.regions, self.adj_matrix, self.degree_matrix = RegionGrid.create_regions(grid_size, self.x_space,
+        self.regions, self.adj_matrix, self.degree_matrix , self.matrix_idx_map = RegionGrid.create_regions(grid_size, self.x_space,
                                                                                       self.y_space)
         self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
-        self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
+        # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
+
 
         if w_mtx_file is not None and os.path.isfile(w_mtx_file):
             self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
@@ -68,7 +69,7 @@ class RegionGrid:
     def create_regions(grid_size, x_space, y_space):
         regions = {}
         grid_index = {}
-        id = 0
+        index = 0
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
                 nw, ne, sw, se = None, None, None, None
@@ -82,8 +83,8 @@ class RegionGrid:
                         ne = (x_space[x_point + 1], y_space[y_point])
                     if y_point + 1 < grid_size:
                         sw = (x_space[x_point], y_space[y_point + 1])
-                r = Region(f"{x_point},{y_point}", id, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
-                id += 1
+                r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
+                index += 1
                 regions[f"{x_point},{y_point}"] = r
                 for key in RegionGrid.key_gen(x_point, y_point):
                     if key in grid_index:
@@ -95,23 +96,31 @@ class RegionGrid:
         v = pow(grid_size, 2)
         # all zeroes
         matrix = numpy.zeros((v, v))
+        # mapping of region coordinate to index
+        coor_index_mapping = dict()
         # for regions, append touching regions
         for region_id, region in regions.items():
-            id = region.id
-            index = region.index.split(",")
-            x = int(index[0])
-            y = int(index[1])
+            # name to index
+            coor_index_mapping[region.coordinate_name] = region.index
+
+            index = region.index
+            # split name
+            name = region.coordinate_name.split(",")
+            x = int(name[0])
+            y = int(name[1])
+
             adj = {}
+            # find all points touching these
             for key in RegionGrid.key_gen(x, y):
                 for region_from_index in grid_index[key]:
-                    if region_from_index.index != region.index:
-                        adj[str(region_from_index.index)] = region_from_index
+                    if region_from_index.coordinate_name != region.coordinate_name:
+                        adj[str(region_from_index.coordinate_name)] = region_from_index
             region.create_adjacency(adj)
             # for each adjacent region, get its id and set the column for it to 1 in the adj matrix
             for adj_region in adj.values():
-                adj_index = adj_region.id
-                matrix[id][adj_index] = 1
-        return regions, matrix, RegionGrid.get_degree_mtx(matrix)
+                adj_index = adj_region.index
+                matrix[index][adj_index] = 1
+        return regions, matrix, RegionGrid.get_degree_mtx(matrix), coor_index_mapping
 
     @staticmethod
     def get_degree_mtx(A):
@@ -167,7 +176,7 @@ class RegionGrid:
         print(f"Creating Feature Matrix of size {n} X {m}")
         feature_matrix = numpy.zeros(shape=(n, m))
         for region in regions.values():
-            index = region.id
+            index = region.index
             cats = region.categories
             for cat in cats:
                 cat_index = self.categories[cat]
@@ -290,9 +299,9 @@ class RegionGrid:
 
 class Region:
 
-    def __init__(self, index, id, points):
-        self.id = id
+    def __init__(self, name, index, points):
         self.index = index
+        self.coordinate_name = name
         self.points = points
         self.categories = set()
         self.nw, self.ne, self.sw, self.se = points['nw'], points['ne'], points['sw'], points['se']
@@ -301,7 +310,7 @@ class Region:
         self.move = self.move_keys()
 
     def move_keys(self):
-        index = self.index.split(',')
+        index = self.coordinate_name.split(',')
         x = int(index[0])
         y = int(index[1])
         return {
@@ -324,7 +333,7 @@ class Region:
             if key in self.adjacent:
                 return self.adjacent[key]
             else:
-                return f"Cannot Move to {key} from {self.index}"
+                return f"Cannot Move to {key} from {self.coordinate_name}"
         else:
             return "Movement Not found"
 
@@ -342,9 +351,9 @@ if __name__ == '__main__':
     cat = region_grid.categories
 
     r = region_grid.regions['25,25']
-    print(region_grid.feature_matrix[r.id])
-    print(numpy.nonzero(region_grid.feature_matrix[r.id]))
-    for cat in region_grid.regions[r.index].categories:
+    print(region_grid.feature_matrix[r.index])
+    print(numpy.nonzero(region_grid.feature_matrix[r.index]))
+    for cat in region_grid.regions[r.coordinate_name].categories:
         print(region_grid.categories[cat])
 
     W = region_grid.weighted_mtx
