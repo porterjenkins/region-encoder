@@ -17,9 +17,9 @@ class GCN(nn.Module):
         self.n_nodes = n_nodes
         self.n_features = n_features
         # fully connected layer 1
-        self.fcl_0 = nn.Linear(n_features, h_dim_size, bias=True)
+        self.fcl_0 = nn.Linear(n_features, 512, bias=True)
         # Output layer for link prediction
-        self.out_layer = nn.Linear(h_dim_size, 2, bias=True)
+        self.fcl_1 = nn.Linear(512, h_dim_size, bias=True)
 
 
 
@@ -29,9 +29,9 @@ class GCN(nn.Module):
         H_0 = F.relu(self.fcl_0(G_0))
 
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
-        output_logits = self.out_layer(G_1)
+        H_1 = self.fcl_1(G_1)
 
-        return output_logits, H_0
+        return H_1
 
 
     def get_optimizer(self):
