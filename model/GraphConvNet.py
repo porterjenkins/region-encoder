@@ -19,8 +19,7 @@ class GCN(nn.Module):
         # fully connected layer 1
         self.fcl_0 = nn.Linear(n_features, h_dim_size, bias=True)
         # Output layer for link prediction
-        self.fcl_1 = nn.Linear(h_dim_size, 2, bias=True)
-        #self.out_layer = nn.Linear(8, 2, bias=True)
+        self.out_layer = nn.Linear(h_dim_size, 2, bias=True)
 
 
 
@@ -30,7 +29,7 @@ class GCN(nn.Module):
         H_0 = F.relu(self.fcl_0(G_0))
 
         G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
-        output_logits = self.fcl_1(G_1)
+        output_logits = self.out_layer(G_1)
 
         return output_logits, H_0
 

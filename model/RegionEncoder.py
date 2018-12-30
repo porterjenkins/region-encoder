@@ -197,7 +197,33 @@ class RegionEncoder(nn.Module):
 
         return gamma
 
-    def run_train_job(self,region_grid, epochs, lr):
+    def __gen_neg_samples_discriminator(self):
+        pass
+
+    def __gen_neg_samples_gcn(self, n_neg_samples, adj_mtx, idx_map):
+
+        n_nodes = adj_mtx.shape[0]
+        neg_sample_map = dict()
+
+        for id, mtx_idx in idx_map.items():
+            neg_sample_map[id] = list()
+            for k in range(n_neg_samples):
+                get_neg_sample = True
+                while get_neg_sample:
+                    neg_sample_idx = np.random.randint(0, n_nodes)
+                    if adj_mtx[mtx_idx, neg_sample_idx] == 0:
+                        get_neg_sample = False
+                        neg_sample_map[id].append(neg_sample_idx)
+
+        return neg_sample_map
+
+
+
+
+
+
+
+    def run_train_job(self,region_grid, epochs, lr, n_neg_sampels=15):
 
         optimizer = self.get_optimizer(lr=lr)
 
@@ -220,44 +246,6 @@ class RegionEncoder(nn.Module):
 
         region_mtx_map = region_grid.matrix_idx_map
 
-        """
-
-        transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-        trainset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=True,
-                                                download=True, transform=transform)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=True, num_workers=2)
-
-        #testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
-        #                                       download=True, transform=transform)
-        #testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-        #                                         shuffle=False, num_workers=2)
-
-        A = get_adj_mtx()
-        X = get_features()
-        W = get_weighted_graph(A.shape[0])
-
-        D_hat = get_degree_mtx(A)
-        A_hat = get_a_hat(A)
-
-        graph_label = get_labels(n_samples=X.shape[0], class_probs=[.2, .5, .2, .1])
-
-        graph_label = torch.from_numpy(graph_label).type(torch.LongTensor)
-
-        X = torch.from_numpy(X).type(torch.FloatTensor)
-        W = torch.from_numpy(W).type(torch.FloatTensor)
-
-        D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
-        A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
-
-        dataiter = iter(trainloader)
-        images, labels = dataiter.next()
-
-        """
-
         # Ground truth for discriminator
         eta = self.__get_eta(batch_size)
         # ground truth for spatial reconstruction
@@ -265,8 +253,9 @@ class RegionEncoder(nn.Module):
 
 
 
-
         for i in range(epochs):
+
+
 
             optimizer.zero_grad()
             # forward + backward + optimize
