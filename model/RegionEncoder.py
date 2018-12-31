@@ -1,16 +1,15 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from model.AutoEncoder import AutoEncoder
 from model.GraphConvNet import GCN
 from model.discriminator import DiscriminatorMLP
-import torchvision
-import torchvision.transforms as transforms
 from model.get_karate_data import *
-import sys
-import os
 from config import get_config
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from grid.create_grid import RegionGrid
 
 
