@@ -1,10 +1,13 @@
 import torch
 import torchvision
-import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions.multivariate_normal import MultivariateNormal
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from config import get_config
 
 class AutoEncoder(nn.Module):
     """
@@ -91,56 +94,48 @@ class AutoEncoder(nn.Module):
         mvn = MultivariateNormal(torch.zeros((h,w)), torch.eye(w))
         for i in range(batch_size):
             for k in range(channels):
-                noise = torch.clamp(mvn.sample(), min=-1, max=1)
+                #noise = torch.clamp(mvn.sample(), min=-1, max=1)
+                noise = mvn.sample()
                 noised_image[i, k, :, :] = image_tensor[i, k, :, :] + noise_factor*noise
 
         return noised_image
 
-    def run_train_job(self, n_epoch, trainloader, print_iter=500):
+    def run_train_job(self, n_epoch, img_tensor):
         loss_function, optimizer = self.get_optimizer()
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
-            running_loss = 0.0
-            for i, data in enumerate(trainloader, 0):
-
-                inputs, labels = data
-                #imshow(img=torchvision.utils.make_grid(inputs), save=True, fname='true-{}.png'.format(i))
-
-                noisey_inputs = self.add_noise(inputs, noise_factor=.25)
-
-                # zero the parameter gradients
-                optimizer.zero_grad()
-
-                # forward + backward + optimize
-                reconstruction, h = self.forward(x=noisey_inputs)
-                loss = loss_function(inputs, reconstruction)
-                loss.backward()
-                optimizer.step()
-                # print statistics
-                running_loss += loss.item()
-                if (i + 1) % print_iter == 0:
-                    avg_loss = running_loss / print_iter
-                    print("Epoch: {}, Step: {}, Train Loss {:.4f}".format(epoch, i+1, avg_loss))
-                    running_loss = 0.0
-                    #print(self.h)
-
-            imshow(img=torchvision.utils.make_grid(inputs), save=True, fname='true-{}.png'.format(epoch+1))
-            imshow(img=torchvision.utils.make_grid(noisey_inputs), save=True, fname='noisy-{}.png'.format(epoch+1))
-            imshow(img=torchvision.utils.make_grid(reconstruction), save=True,
-                   fname='reconstruction-{}.png'.format(epoch+1))
 
 
+            noisey_inputs = self.add_noise(img_tensor, noise_factor=.25)
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            reconstruction, h = self.forward(x=noisey_inputs)
+            loss = loss_function(img_tensor, reconstruction)
+            loss.backward()
+            optimizer.step()
+            # print statistics
+            #running_loss += loss.item()
+
+            print("Epoch: {}, Train Loss {:.4f}".format(epoch, loss.item()))
+
+            #print(self.h)
+
+            #imshow(img=torchvision.utils.make_grid(inputs), save=True, fname='true-{}.png'.format(epoch+1))
+            #imshow(img=torchvision.utils.make_grid(noisey_inputs), save=True, fname='noisy-{}.png'.format(epoch+1))
+            #imshow(img=torchvision.utils.make_grid(reconstruction), save=True, fname='reconstruction-{}.png'.format(epoch+1))
 
 
         print('Finished Training')
-
 
 if __name__ == "__main__":
     ########################################################################
     # The output of torchvision datasets are PILImage images of range [0, 1].
     # We transform them to Tensors of normalized range [-1, 1].
 
-    transform = transforms.Compose(
+    """transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
@@ -158,10 +153,11 @@ if __name__ == "__main__":
                'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     ########################################################################
-    # Let us show some of the training images, for fun.
+    # Let us show some of the training images, for fun."""
 
     import matplotlib.pyplot as plt
     import numpy as np
+    from grid.create_grid import RegionGrid
 
     # functions to show an image
 
@@ -177,8 +173,14 @@ if __name__ == "__main__":
 
 
     # get some random training images
-    dataiter = iter(trainloader)
-    images, labels = dataiter.next()
+    #dataiter = iter(trainloader)
+    #images, labels = dataiter.next()
+
+    c = get_config()
+    file = open(c["poi_file"], 'rb')
+    img_dir = c['path_to_image_dir']
+    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
+    img_tensor = torch.from_numpy(region_grid.img_tensor)
 
     auto_encoder = AutoEncoder(h_dim_size=16)
-    auto_encoder.run_train_job(n_epoch=25, trainloader=trainloader)
+    auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)

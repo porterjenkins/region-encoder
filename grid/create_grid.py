@@ -4,6 +4,7 @@ import sys
 import numpy
 from scipy import ndimage
 import logging
+import matplotlib.pyplot as plt
 # this should add files properly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 logging.basicConfig(filename='region.log', filemode='w', level=logging.INFO,
@@ -71,13 +72,13 @@ class RegionGrid:
         return "No Region Found"
 
     @staticmethod
-    def create_regions(grid_size, x_space, y_space, img_dir, img_dims):
+    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, std_img=True):
         logging.info("Running create regions job")
         regions = {}
         grid_index = {}
         index = 0
         # init image tensor: n_samples x n_channels x n_rows x n_cols
-        img_tensor = numpy.zeros((grid_size**2, 3, img_dims[0], img_dims[1]))
+        img_tensor = numpy.zeros((grid_size**2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
 
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
@@ -93,7 +94,7 @@ class RegionGrid:
                     if y_point + 1 < grid_size:
                         sw = (x_space[x_point], y_space[y_point + 1])
                 r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
-                r.load_sat_img(img_dir)
+                r.load_sat_img(img_dir, standarize=std_img)
                 img_tensor[index, :, :, :] = r.sat_img
                 print("Initializing region: %s" % r.coordinate_name)
                 index += 1
@@ -357,16 +358,23 @@ class Region:
         self.categories.add(poi.cat)
 
 
-    def load_sat_img(self, img_dir):
+    def load_sat_img(self, img_dir, standarize):
         coors_split = self.coordinate_name.split(",")
         coors = "-".join(coors_split)
         fname = "{}/{}.jpg".format(img_dir, coors)
         img = ndimage.imread(fname)
-        img_t = numpy.transpose(img)
+        img_t = numpy.transpose(img).astype(numpy.float32)
+
+        if standarize:
+            for channel in range(img_t.shape[0]):
+                # standardize each channel --> zero-mean, unit variance
+                mu = numpy.mean(img_t[channel, :, :])
+                sig = numpy.std(img_t[channel, :, :])
+                img_t[channel, :, :] = (img_t[channel, :, :] - mu) / sig
+
         # ensure that each image has three change (r, g, b)
         if img_t.shape[0] > 3:
             logging.info('Image for region {} has shape {}. Using first three on dim 0'.format(coors, img_t.shape))
-
             self.sat_img = img_t[0:3, :, :]
         else:
             self.sat_img = img_t
@@ -394,4 +402,9 @@ if __name__ == '__main__':
     print(A.shape)
     print(D.shape)
     print(I.shape)
+
+
+
+
+
 
