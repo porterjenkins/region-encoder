@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 import numpy
+from scipy import ndimage
 # this should add files properly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -10,7 +11,7 @@ from config import get_config
 
 class RegionGrid:
 
-    def __init__(self, poi_file, grid_size=100, w_mtx_file=None):
+    def __init__(self, grid_size, poi_file, img_dir, w_mtx_file=None, img_dims=(640, 640)):
         poi = pickle.load(poi_file)
         rect, self.categories = RegionGrid.handle_poi(poi)
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
@@ -18,8 +19,10 @@ class RegionGrid:
         self.grid_size = grid_size
         self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], grid_size)
         self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], grid_size)
-        self.regions, self.adj_matrix, self.degree_matrix , self.matrix_idx_map = RegionGrid.create_regions(grid_size, self.x_space,
-                                                                                      self.y_space)
+        # create regions, adjacency matrix, degree matrix, and image tensor
+        self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, \
+        self.matrix_idx_map = RegionGrid.create_regions(grid_size, self.x_space,
+                                                        self.y_space, img_dir=img_dir, img_dims=img_dims)
         self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
         # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
@@ -27,8 +30,6 @@ class RegionGrid:
 
         if w_mtx_file is not None and os.path.isfile(w_mtx_file):
             self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
-
-
 
 
     def load_poi(self, poi):
@@ -66,10 +67,13 @@ class RegionGrid:
         return "No Region Found"
 
     @staticmethod
-    def create_regions(grid_size, x_space, y_space):
+    def create_regions(grid_size, x_space, y_space, img_dir, img_dims):
         regions = {}
         grid_index = {}
         index = 0
+        # init image tensor: n_samples x n_channels x n_rows x n_cols
+        img_tensor = numpy.zeros((grid_size**2, 3, img_dims[0], img_dims[1]))
+
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
                 nw, ne, sw, se = None, None, None, None
@@ -84,6 +88,13 @@ class RegionGrid:
                     if y_point + 1 < grid_size:
                         sw = (x_space[x_point], y_space[y_point + 1])
                 r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
+                r.load_sat_img(img_dir)
+                try:
+                    img_tensor[index, :, :, :] = r.sat_img
+                except ValueError as err:
+                    print("{}: {} - {}".format(r.coordinate_name, err, r.sat_img.shape))
+                    pass
+                print("Initializing region: %s" % r.coordinate_name)
                 index += 1
                 regions[f"{x_point},{y_point}"] = r
                 for key in RegionGrid.key_gen(x_point, y_point):
@@ -91,6 +102,8 @@ class RegionGrid:
                         grid_index[key].append(r)
                     else:
                         grid_index[key] = [r]
+
+
 
         # adjacency matrix
         v = pow(grid_size, 2)
@@ -120,7 +133,7 @@ class RegionGrid:
             for adj_region in adj.values():
                 adj_index = adj_region.index
                 matrix[index][adj_index] = 1
-        return regions, matrix, RegionGrid.get_degree_mtx(matrix), coor_index_mapping
+        return regions, matrix, RegionGrid.get_degree_mtx(matrix), img_tensor, coor_index_mapping
 
     @staticmethod
     def get_degree_mtx(A):
@@ -308,6 +321,7 @@ class Region:
         self.poi = []
         self.adjacent = {}
         self.move = self.move_keys()
+        self.sat_img = numpy.array
 
     def move_keys(self):
         index = self.coordinate_name.split(',')
@@ -342,10 +356,19 @@ class Region:
         self.categories.add(poi.cat)
 
 
+    def load_sat_img(self, img_dir):
+        coors_split = self.coordinate_name.split(",")
+        coors = "-".join(coors_split)
+        fname = "{}/{}.jpg".format(img_dir, coors)
+        img = ndimage.imread(fname)
+        self.sat_img = numpy.transpose(img)
+
+
 if __name__ == '__main__':
     c = get_config()
     file = open(c["poi_file"], 'rb')
-    region_grid = RegionGrid(file, 50, c['flow_mtx_file'])
+    img_dir = c['path_to_image_dir']
+    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
@@ -357,7 +380,10 @@ if __name__ == '__main__':
         print(region_grid.categories[cat])
 
     W = region_grid.weighted_mtx
+    I = region_grid.img_tensor
+
     print(W.shape)
     print(A.shape)
     print(D.shape)
+    print(I.shape)
 
