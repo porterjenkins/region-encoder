@@ -13,8 +13,9 @@ class AutoEncoder(nn.Module):
     """
     Denoising Autoencoder implementation
     """
-    def __init__(self, h_dim_size=32):
+    def __init__(self, img_dims, h_dim_size=32):
         super(AutoEncoder, self).__init__()
+        self.img_dims = img_dims
         ### Encoder
 
         # convoluional layer
@@ -24,18 +25,18 @@ class AutoEncoder(nn.Module):
         # Convolutional Layer
         self.conv2 = nn.Conv2d(6, 24, 3)
         # Three fully connected layers
-        self.fc1 = nn.Linear(24 * 6 * 6, 120)
+        self.fc1 = nn.Linear(24 * 158 * 158, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, h_dim_size)
 
         ### Decoder
         self.fc4 = nn.Linear(h_dim_size, 84)
         self.fc5 = nn.Linear(84, 120)
-        self.fc6 = nn.Linear(120, 24 * 6 * 6)
+        self.fc6 = nn.Linear(120, 24 * 158 * 158)
         self.conv3 = nn.Conv2d(24, 6, 3)
         self.up_sample3 = nn.UpsamplingBilinear2d((14, 14))
         self.conv4 = nn.Conv2d(6, 3, 3)
-        self.up_sample4 = nn.UpsamplingBilinear2d((32, 32))
+        self.up_sample4 = nn.UpsamplingBilinear2d(self.img_dims)
         self.conv5 = nn.Conv2d(3, 3, kernel_size=1)
 
 
@@ -47,7 +48,7 @@ class AutoEncoder(nn.Module):
         #print(x.shape)
         x = self.pool(F.relu(self.conv2(x)))
         #print(x.shape)
-        x = x.view(-1, 24 * 6 * 6)
+        x = x.view(-1, 24 * 158 * 158)
         #print(x.shape)
         x = F.relu(self.fc1(x))
         #print(x.shape)
@@ -65,7 +66,7 @@ class AutoEncoder(nn.Module):
         x = F.relu(self.fc6(x))
         #print(x.shape)
 
-        x = x.view(-1, 24, 6, 6)
+        x = x.view(-1, 24, 158, 158)
         #print(x.shape)
 
         x = self.up_sample3(F.relu(self.conv3(x)))
@@ -102,24 +103,29 @@ class AutoEncoder(nn.Module):
 
     def run_train_job(self, n_epoch, img_tensor):
         loss_function, optimizer = self.get_optimizer()
+        n_samples = img_tensor.shape[0]
+        batch_size = 5
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
+            for step in range(int(n_samples / batch_size)):
+                start_idx = step*batch_size
+                end_idx = start_idx + batch_size
 
 
-            noisey_inputs = self.add_noise(img_tensor, noise_factor=.25)
+                noisey_inputs = self.add_noise(img_tensor[start_idx:end_idx, :, :, :], noise_factor=.25)
 
-            # zero the parameter gradients
-            optimizer.zero_grad()
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
-            # forward + backward + optimize
-            reconstruction, h = self.forward(x=noisey_inputs)
-            loss = loss_function(img_tensor, reconstruction)
-            loss.backward()
-            optimizer.step()
-            # print statistics
-            #running_loss += loss.item()
+                # forward + backward + optimize
+                reconstruction, h = self.forward(x=noisey_inputs)
+                loss = loss_function(img_tensor[start_idx:end_idx, :, :, :], reconstruction)
+                loss.backward()
+                optimizer.step()
+                # print statistics
+                #running_loss += loss.item()
 
-            print("Epoch: {}, Train Loss {:.4f}".format(epoch, loss.item()))
+                print("Epoch: {}, step: {}, Train Loss {:.4f}".format(epoch, step, loss.item()))
 
             #print(self.h)
 
@@ -156,5 +162,5 @@ if __name__ == "__main__":
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
 
-    auto_encoder = AutoEncoder(h_dim_size=16)
+    auto_encoder = AutoEncoder(img_dims=(640,640), h_dim_size=16)
     auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)

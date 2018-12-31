@@ -312,7 +312,7 @@ class RegionGrid:
         return W
 
     def img_tens_get_size(self):
-        b = region_grid.img_tensor.nbytes
+        b = self.img_tensor.nbytes
         gb = b / 1000000000
         print("array size: {} GB".format(gb))
         return gb
