@@ -1,0 +1,12 @@
+2018-12-31 11:58:35,824 Running create regions job
+2018-12-31 11:59:06,711 Image for region 18-49 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:45,334 Image for region 42-46 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:45,390 Image for region 42-47 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:45,418 Image for region 42-48 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:46,942 Image for region 43-46 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:48,425 Image for region 44-46 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:49,921 Image for region 45-46 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:51,456 Image for region 46-46 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:52,954 Image for region 47-46 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:55,024 Image for region 48-46 has shape (4, 640, 640). Using first three on dim 0
+2018-12-31 11:59:56,512 Image for region 49-49 has shape (4, 640, 640). Using first three on dim 0
