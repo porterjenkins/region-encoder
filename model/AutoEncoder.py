@@ -131,29 +131,6 @@ class AutoEncoder(nn.Module):
         print('Finished Training')
 
 if __name__ == "__main__":
-    ########################################################################
-    # The output of torchvision datasets are PILImage images of range [0, 1].
-    # We transform them to Tensors of normalized range [-1, 1].
-
-    """transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-    trainset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=True,
-                                            download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=8,
-                                              shuffle=True, num_workers=2)
-
-    testset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=False,
-                                           download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=8,
-                                             shuffle=False, num_workers=2)
-
-    classes = ('plane', 'car', 'bird', 'cat',
-               'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-    ########################################################################
-    # Let us show some of the training images, for fun."""
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -171,16 +148,13 @@ if __name__ == "__main__":
         else:
             plt.show()
 
-
-    # get some random training images
-    #dataiter = iter(trainloader)
-    #images, labels = dataiter.next()
-
     c = get_config()
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
     region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
-    img_tensor = torch.from_numpy(region_grid.img_tensor)
+    region_grid.img_tens_get_size()
+
+    img_tensor = torch.Tensor(region_grid.img_tensor)
 
     auto_encoder = AutoEncoder(h_dim_size=16)
     auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)
