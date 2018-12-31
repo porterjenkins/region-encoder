@@ -256,6 +256,8 @@ class RegionEncoder(nn.Module):
         W = torch.from_numpy(W).type(torch.FloatTensor)
         X = torch.from_numpy(X).type(torch.FloatTensor)
 
+        img_tensor = torch.Tensor(region_grid.img_tensor)
+
         batch_size = A.shape[0]
 
         region_mtx_map = region_grid.matrix_idx_map
@@ -265,25 +267,11 @@ class RegionEncoder(nn.Module):
         # ground truth for spatial reconstruction
         gamma = self.__get_gamma(batch_size)
 
-
-        # placeholder for image data
-        transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-        trainset = torchvision.datasets.CIFAR10(root='../tutorials/data', train=True,
-                                                download=True, transform=transform)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=True, num_workers=2)
-        dataiter = iter(trainloader)
-        images, labels = dataiter.next()
-
         for i in range(epochs):
 
             optimizer.zero_grad()
             # forward + backward + optimize
-            logits, h_global, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat,
-                                                                                                       img_tensor=images)
+            logits, h_global, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat, img_tensor=img_tensor)
             # generate positive samples for gcn
             gcn_pos_samples = self.__gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
@@ -293,7 +281,7 @@ class RegionEncoder(nn.Module):
             L_graph = self.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
             L_edge_weights = self.loss_weighted_edges(graph_proximity, W)
             L_disc = self.loss_disc(eta, logits)
-            L_ae = self.loss_ae(images, image_hat)
+            L_ae = self.loss_ae(img_tensor, image_hat)
 
             loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae)
             loss.backward()

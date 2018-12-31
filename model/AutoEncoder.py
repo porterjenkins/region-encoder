@@ -162,5 +162,5 @@ if __name__ == "__main__":
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
 
-    auto_encoder = AutoEncoder(img_dims=(640,640), h_dim_size=16)
+    auto_encoder = AutoEncoder(img_dims=(640,640), h_dim_size=32)
     auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)
