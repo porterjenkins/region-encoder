@@ -22,11 +22,11 @@ class RegionEncoder(nn.Module):
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
-                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01):
+                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01, img_dims=(640,640)):
         super(RegionEncoder, self).__init__()
         # Model Layers
         self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph, n_classes=4)
-        self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img)
+        self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img, img_dims=img_dims)
         self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_disc)
 
         # Model Hyperparams
