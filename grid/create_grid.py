@@ -1,22 +1,23 @@
+import logging
 import os
 import pickle
 import sys
+
 import numpy
+import pandas
 from scipy import ndimage
-import logging
-import matplotlib.pyplot as plt
+
 # this should add files properly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 logging.basicConfig(filename='region.log', filemode='w', level=logging.INFO,
                     format='%(asctime)s %(message)s')
-
 
 from config import get_config
 
 
 class RegionGrid:
 
-    def __init__(self, grid_size, poi_file, img_dir, w_mtx_file=None, img_dims=(640, 640)):
+    def __init__(self, grid_size, poi_file, img_dir, w_mtx_file=None, housing_data=None, img_dims=(640, 640)):
         poi = pickle.load(poi_file)
         rect, self.categories = RegionGrid.handle_poi(poi)
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
@@ -32,10 +33,11 @@ class RegionGrid:
         self.feature_matrix = self.create_feature_matrix()
         # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
 
-
         if w_mtx_file is not None and os.path.isfile(w_mtx_file):
             self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
 
+        if housing_data is not None and os.path.isfile(housing_data):
+            self.housing_data = self.load_housing_data(housing_data)
 
     def load_poi(self, poi):
         x_space = self.x_space
@@ -55,9 +57,11 @@ class RegionGrid:
 
     def get_region_for_coor(self, lat, long):
         if lat < self.lat_min or lat > self.lat_max:
-            return "Lat is out of X Coordinate Space"
+            logging.warning(f"Lat {lat} is out of X Coordinate Space")
+            return None
         if long < self.lon_min or long > self.lon_max:
-            return "Long is out of Y Coordinate Space"
+            logging.warning(f"Long {long} is out of Y Coordinate Space")
+            return None
         x_space = self.x_space
         y_space = self.y_space
         regions = self.regions
@@ -69,7 +73,28 @@ class RegionGrid:
         r_key = f"{x_bucket_index},{y_bucket_index}"
         if r_key in regions:
             return regions[r_key]
-        return "No Region Found"
+        logging.warning("No Region Found")
+        return None
+
+    @staticmethod
+    def parse_price(price):
+        price = price.lower()
+        if "m" in price:
+            return float(price[:price.index("m")]) * 1000000
+        return float(price)
+
+    def load_housing_data(self, housing_data):
+        df = pandas.read_csv(housing_data)
+        df = df[['lat', 'lon', 'sold']]
+        missed = 0
+        for index, row in df.iterrows():
+            lat, lon, price = float(row.lat), float(row.lon), RegionGrid.parse_price(row.sold)
+            region = self.get_region_for_coor(lat, lon)
+            if region is not None:
+                region.add_home(price)
+            else:
+                missed +=1
+        print(f"{missed} rows Not loaded")
 
     @staticmethod
     def create_regions(grid_size, x_space, y_space, img_dir, img_dims, std_img=True):
@@ -78,7 +103,7 @@ class RegionGrid:
         grid_index = {}
         index = 0
         # init image tensor: n_samples x n_channels x n_rows x n_cols
-        img_tensor = numpy.zeros((grid_size**2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
+        img_tensor = numpy.zeros((grid_size ** 2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
 
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
@@ -104,8 +129,6 @@ class RegionGrid:
                         grid_index[key].append(r)
                     else:
                         grid_index[key] = [r]
-
-
 
         # adjacency matrix
         v = pow(grid_size, 2)
@@ -236,7 +259,7 @@ class RegionGrid:
         width = self.x_space[1] - self.x_space[0]
         heigth = self.y_space[1] - self.y_space[0]
 
-        x_idx = int((x - self.x_space[0])/width)
+        x_idx = int((x - self.x_space[0]) / width)
         y_idx = int((y - self.y_space[0]) / heigth)
 
         return "{},{}".format(x_idx, y_idx)
@@ -252,7 +275,7 @@ class RegionGrid:
         :return: (np.array) 2-d weighted flow matrix
         """
 
-        n_regions = self.grid_size**2
+        n_regions = self.grid_size ** 2
         flow_matrix = numpy.zeros((n_regions, n_regions))
         # index given by chicago data portal docs
         drop_lat_idx = 20
@@ -260,14 +283,11 @@ class RegionGrid:
         pickup_lat_idx = 17
         pickup_lon_idx = 18
 
-
-
         sample_cnt = 0
         row_cntr = 0
         with open(fname, 'r') as f:
             for row in f:
                 data = row.split(",")
-
 
                 if row_cntr == 0:
                     headers = data
@@ -291,7 +311,7 @@ class RegionGrid:
                             sample_cnt += 1
 
                             if sample_cnt % 10000 == 0:
-                                print("{}: {}, {} --> {}".format(row_cntr, sample_cnt, trip_pickup,trip_drop))
+                                print("{}: {}, {} --> {}".format(row_cntr, sample_cnt, trip_pickup, trip_drop))
 
                             if n_rows is not None:
                                 if sample_cnt >= n_rows:
@@ -303,7 +323,6 @@ class RegionGrid:
                 row_cntr += 1
 
         return flow_matrix
-
 
     def load_weighted_mtx(self, fname):
         with open(fname, 'rb') as f:
@@ -330,6 +349,22 @@ class Region:
         self.adjacent = {}
         self.move = self.move_keys()
         self.sat_img = numpy.array
+        self.home_data = []
+
+    def median_home_value(self):
+        numpy.median(self.home_data)
+
+    def mean_home_value(self):
+        numpy.mean(self.home_data)
+
+    def max_home_value(self):
+        numpy.max(self.home_data)
+
+    def min_home_value(self):
+        numpy.min(self.home_data)
+
+    def add_home(self, home):
+        self.home_data.append(home)
 
     def move_keys(self):
         index = self.coordinate_name.split(',')
@@ -363,7 +398,6 @@ class Region:
         self.poi.append(poi)
         self.categories.add(poi.cat)
 
-
     def load_sat_img(self, img_dir, standarize):
         coors_split = self.coordinate_name.split(",")
         coors = "-".join(coors_split)
@@ -390,7 +424,7 @@ if __name__ == '__main__':
     c = get_config()
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
+    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=None, housing_data=c["housing_data"])
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
@@ -408,9 +442,3 @@ if __name__ == '__main__':
     print(A.shape)
     print(D.shape)
     print(I.shape)
-
-
-
-
-
-
