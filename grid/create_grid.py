@@ -2,7 +2,6 @@ import logging
 import os
 import pickle
 import sys
-
 import numpy
 import pandas
 from scipy import ndimage
@@ -119,8 +118,8 @@ class RegionGrid:
                     if y_point + 1 < grid_size:
                         sw = (x_space[x_point], y_space[y_point + 1])
                 r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
-                r.load_sat_img(img_dir, standarize=std_img)
-                img_tensor[index, :, :, :] = r.sat_img
+                #r.load_sat_img(img_dir, standarize=std_img)
+                #img_tensor[index, :, :, :] = r.sat_img
                 print("Initializing region: %s" % r.coordinate_name)
                 index += 1
                 regions[f"{x_point},{y_point}"] = r
@@ -336,6 +335,24 @@ class RegionGrid:
         print("array size: {} GB".format(gb))
         return gb
 
+    def get_target_var(self, target_name):
+
+        y = numpy.zeros(self.grid_size**2)
+
+        if target_name == 'house_price':
+            n_nan = 0
+            for id, r in self.regions.items():
+                idx = self.matrix_idx_map[id]
+                val = r.median_home_value()
+                if numpy.isnan(val):
+                    n_nan += 1
+                y[idx] = val
+
+            print("Pct of regions with missing zillow prices: {}".format(n_nan / (self.grid_size ** 2)))
+            return y
+        else:
+            raise NotImplementedError("Only 'house_price' is currently implemented")
+
 
 class Region:
 
@@ -352,16 +369,16 @@ class Region:
         self.home_data = []
 
     def median_home_value(self):
-        numpy.median(self.home_data)
+        return numpy.median(self.home_data)
 
     def mean_home_value(self):
-        numpy.mean(self.home_data)
+        return numpy.mean(self.home_data)
 
     def max_home_value(self):
-        numpy.max(self.home_data)
+        return numpy.max(self.home_data)
 
     def min_home_value(self):
-        numpy.min(self.home_data)
+        return numpy.min(self.home_data)
 
     def add_home(self, home):
         self.home_data.append(home)
@@ -422,9 +439,11 @@ class Region:
 
 if __name__ == '__main__':
     c = get_config()
+    grid_size = 50
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=None, housing_data=c["housing_data"])
+    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
+                             housing_data=c["housing_data_file"])
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
@@ -435,6 +454,7 @@ if __name__ == '__main__':
     for cat in region_grid.regions[r.coordinate_name].categories:
         print(region_grid.categories[cat])
 
+
     W = region_grid.weighted_mtx
     I = region_grid.img_tensor
 
@@ -442,3 +462,5 @@ if __name__ == '__main__':
     print(A.shape)
     print(D.shape)
     print(I.shape)
+
+    y_house = region_grid.get_target_var("house_price")
