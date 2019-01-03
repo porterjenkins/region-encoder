@@ -450,6 +450,15 @@ class Region:
 
         return x_dist, y_dist
 
+    def compute_midpoint(self):
+
+        x_points = [self.points['nw'][0], self.points['ne'][0]]
+        y_points = [self.points['nw'][1], self.points['sw'][1]]
+
+        x_mid = numpy.mean(x_points)
+        y_mid = numpy.mean(y_points)
+        return [x_mid, y_mid]
+
 
 
 
@@ -459,13 +468,15 @@ if __name__ == '__main__':
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
     region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"])
+                             housing_data=c["housing_data_file"], load_imgs=False)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     cat = region_grid.categories
 
     r = region_grid.regions['25,25']
     xdist, ydist = r.compute_distances()
+    x_mid, y_mid = r.compute_midpoint()
+
     print(region_grid.feature_matrix[r.index])
     print(numpy.nonzero(region_grid.feature_matrix[r.index]))
     for cat in region_grid.regions[r.coordinate_name].categories:
