@@ -36,7 +36,7 @@ class RegionGrid:
             self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
 
         if housing_data is not None and os.path.isfile(housing_data):
-            self.housing_data = self.load_housing_data(housing_data)
+            self.load_housing_data(housing_data)
 
     def load_poi(self, poi):
         x_space = self.x_space
