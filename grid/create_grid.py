@@ -84,13 +84,13 @@ class RegionGrid:
 
     def load_housing_data(self, housing_data):
         df = pandas.read_csv(housing_data)
-        df = df[['lat', 'lon', 'sold']]
+        df = df[['lat', 'lon', 'sold', 'sqft']]
         missed = 0
         for index, row in df.iterrows():
-            lat, lon, price = float(row.lat), float(row.lon), RegionGrid.parse_price(row.sold)
+            lat, lon, price, sqft = float(row.lat), float(row.lon), RegionGrid.parse_price(row.sold), float(row.sqft)
             region = self.get_region_for_coor(lat, lon)
             if region is not None:
-                region.add_home(price)
+                region.add_home(price/sqft)
             else:
                 missed +=1
         print(f"{missed} rows Not loaded")
