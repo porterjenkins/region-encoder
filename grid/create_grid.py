@@ -17,7 +17,8 @@ from config import get_config
 
 class RegionGrid:
 
-    def __init__(self, grid_size, poi_file, img_dir, w_mtx_file=None, housing_data=None, img_dims=(640, 640)):
+    def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640),
+                 load_imgs=True):
         poi = pickle.load(poi_file)
         rect, self.categories = RegionGrid.handle_poi(poi)
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
@@ -28,7 +29,8 @@ class RegionGrid:
         # create regions, adjacency matrix, degree matrix, and image tensor
         self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, \
         self.matrix_idx_map = RegionGrid.create_regions(grid_size, self.x_space,
-                                                        self.y_space, img_dir=img_dir, img_dims=img_dims)
+                                                        self.y_space, img_dir=img_dir, img_dims=img_dims,
+                                                        load_imgs=load_imgs)
         self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
         # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
@@ -97,7 +99,7 @@ class RegionGrid:
         print(f"{missed} rows Not loaded")
 
     @staticmethod
-    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, std_img=True):
+    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, load_imgs, std_img=True):
         logging.info("Running create regions job")
         regions = {}
         grid_index = {}
@@ -119,8 +121,9 @@ class RegionGrid:
                     if y_point + 1 < grid_size:
                         sw = (x_space[x_point], y_space[y_point + 1])
                 r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
-                #r.load_sat_img(img_dir, standarize=std_img)
-                #img_tensor[index, :, :, :] = r.sat_img
+                if load_imgs:
+                    r.load_sat_img(img_dir, standarize=std_img)
+                    img_tensor[index, :, :, :] = r.sat_img
                 print("Initializing region: %s" % r.coordinate_name)
                 index += 1
                 regions[f"{x_point},{y_point}"] = r
