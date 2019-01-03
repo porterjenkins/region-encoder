@@ -12,10 +12,6 @@ img_dir = c['path_to_image_dir']
 region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
                          housing_data=c["housing_data_file"], load_imgs=False)
 
-A = region_grid.adj_matrix
-D = region_grid.degree_matrix
-W = region_grid.weighted_mtx
+D_euclidean = region_grid.get_distance_mtx()
 
-print(W.shape)
-print(A.shape)
-print(D.shape)
+print(D_euclidean)

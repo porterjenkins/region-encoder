@@ -6,6 +6,7 @@ import numpy
 import pandas
 from scipy import ndimage
 from geopy.distance import distance
+from scipy.spatial.distance import euclidean
 
 # this should add files properly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -31,6 +32,8 @@ class RegionGrid:
         self.matrix_idx_map = RegionGrid.create_regions(grid_size, self.x_space,
                                                         self.y_space, img_dir=img_dir, img_dims=img_dims,
                                                         load_imgs=load_imgs)
+        # Reverse mapping: index to coordinate name
+        self.idx_coor_map = dict(zip(self.matrix_idx_map.values(), self.matrix_idx_map.keys()))
         self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
         # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
@@ -357,6 +360,40 @@ class RegionGrid:
         else:
             raise NotImplementedError("Only 'house_price' is currently implemented")
 
+    def get_distance_mtx(self, metric='euclidean'):
+        """
+        Get pairwise distance matrix of all regions. Default metric is euclidean distance between
+            region_i and region_j
+        Returns an upper-triangular matrix for effeciency
+        :param metric:
+        :return: (np.array) Upper-triangular matrix of spatial distances
+        """
+        print("Creating distance matrix -- metric = {}".format(metric))
+        n_regions = self.grid_size**2
+        dist_mtx = numpy.zeros((n_regions, n_regions))
+
+        # iterate over regions
+        # create upper-triangular matrix for efficiency
+        for i, r_i in self.regions.items():
+            idx_i = self.matrix_idx_map[i]
+            for idx_j in range(idx_i+1, n_regions):
+                j = self.idx_coor_map[idx_j]
+                r_j = self.regions[j]
+
+
+                print("progress -- i: {}, j: {}".format(i, j), end='\r')
+                if metric == 'euclidean':
+                    try:
+                        dist = euclidean(r_i.mid_point, r_j.mid_point)
+                    except ValueError:
+                        dist = numpy.nan
+                else:
+                    raise NotImplementedError("Only metric='euclidean' is currently implemented")
+
+                dist_mtx[idx_i, idx_j] = dist
+
+        return dist_mtx
+
 
 class Region:
 
@@ -366,6 +403,7 @@ class Region:
         self.points = points
         self.categories = set()
         self.nw, self.ne, self.sw, self.se = points['nw'], points['ne'], points['sw'], points['se']
+        self.mid_point = self.compute_midpoint()
         self.poi = []
         self.adjacent = {}
         self.move = self.move_keys()
@@ -452,12 +490,17 @@ class Region:
 
     def compute_midpoint(self):
 
-        x_points = [self.points['nw'][0], self.points['ne'][0]]
-        y_points = [self.points['nw'][1], self.points['sw'][1]]
+        try:
+            x_points = [self.points['nw'][0], self.points['ne'][0]]
+            y_points = [self.points['nw'][1], self.points['sw'][1]]
 
-        x_mid = numpy.mean(x_points)
-        y_mid = numpy.mean(y_points)
-        return [x_mid, y_mid]
+            x_mid = numpy.mean(x_points)
+            y_mid = numpy.mean(y_points)
+            mid = [x_mid, y_mid]
+        except TypeError:
+            mid = numpy.nan
+
+        return mid
 
 
 
