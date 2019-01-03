@@ -516,7 +516,7 @@ if __name__ == '__main__':
     D = region_grid.degree_matrix
     cat = region_grid.categories
 
-    r = region_grid.regions['25,25']
+    r = region_grid.regions['0,49']
     xdist, ydist = r.compute_distances()
     x_mid, y_mid = r.compute_midpoint()
 
