@@ -5,6 +5,7 @@ import sys
 import numpy
 import pandas
 from scipy import ndimage
+from geopy.distance import distance
 
 # this should add files properly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -436,6 +437,18 @@ class Region:
         else:
             self.sat_img = img_t
 
+    def compute_distances(self):
+
+        x_points = (self.points['nw'], self.points['ne'])
+        y_points = (self.points['nw'], self.points['sw'])
+
+        x_dist = distance(x_points[0], x_points[1])
+        y_dist = distance(y_points[0], y_points[1])
+
+        return x_dist, y_dist
+
+
+
 
 if __name__ == '__main__':
     c = get_config()
@@ -449,6 +462,7 @@ if __name__ == '__main__':
     cat = region_grid.categories
 
     r = region_grid.regions['25,25']
+    xdist, ydist = r.compute_distances()
     print(region_grid.feature_matrix[r.index])
     print(numpy.nonzero(region_grid.feature_matrix[r.index]))
     for cat in region_grid.regions[r.coordinate_name].categories:
