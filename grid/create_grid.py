@@ -412,6 +412,11 @@ class RegionGrid:
         return mtx / row_sums
 
     def write_edge_list(self, fname):
+        """
+        Write adjacency list to file using adjacency matrix
+        :param fname:
+        :return: None
+        """
         with open(fname, 'w') as f:
             for i, row in enumerate(self.adj_matrix):
                 f.write(str(i) + " ")
@@ -423,6 +428,38 @@ class RegionGrid:
                         f.write(str(neighbor) + " ")
                 f.write("\n")
 
+
+    def load_embedding(self, fname):
+        """
+        Load embedding matrix from text file
+            - assumes first row details the dimensions of the matrix (e.g., 2500 x 64)
+            - assumes that first element of each row is an int denoting the nod index
+            - read data, put into dataframe, and sort by index
+        :param fname: str
+        :return: (np.array) Sorted 2-d array of embedding vectors
+        """
+        deepwalk_features = list()
+        idx = list()
+
+        with open(fname, 'rb') as f:
+            cntr = 0
+            for line in f:
+                if cntr > 0:
+                    row = line.decode('utf-8').split(" ")
+                    row_float = []
+                    for i, element in enumerate(row):
+                        # skip 0th element - tract id
+                        if i == 0:
+                            idx.append(int(element))
+                        else:
+                            row_float.append(float(element))
+                    deepwalk_features.append(row_float)
+
+                cntr += 1
+
+        feature_mtx = pandas.DataFrame(deepwalk_features, index=idx)
+        feature_mtx.sort_index(inplace=True)
+        return feature_mtx.values
 
 
 class Region:
@@ -541,9 +578,9 @@ if __name__ == '__main__':
     region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=None,
                              housing_data=c["housing_data_file"], load_imgs=False)
     A = region_grid.adj_matrix
-    region_grid.write_edge_list(fname=c['edge_list_file'])
-
     D = region_grid.degree_matrix
+
+    deepwalk = region_grid.load_embedding(c['deepwalk_file'])
 
     r = region_grid.regions['0,49']
     xdist, ydist = r.compute_distances()
