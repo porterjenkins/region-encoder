@@ -109,6 +109,15 @@ class RegionGrid:
 
     @staticmethod
     def update_arr_two_dim_sampled(arr, regions, grid_partition_map):
+        """
+        Update a symmetric, 2-d matrix of grid_size^2 x grid_size^2 to correct dimensions, after taking random sample
+        of regions
+        :param arr: (np.array) 2-d array
+        :param regions: (dict) dictioary of sampled regions
+        :param grid_partition_map: (dict) dictionary mapping full grid (grid_size^2 x grid_size^2) coordinate to integer
+        values
+        :return:
+        """
         old_shape = arr.shape
         new_shape = list(old_shape)
         new_shape[0] = len(regions)
