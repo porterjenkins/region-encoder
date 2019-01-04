@@ -77,7 +77,7 @@ if __name__ == "__main__":
     mse, mse_std, mae, mae_std  = mod_euclidean.cv_ols()
     results.append(['euclidean', mse, mse_std, mae, mae_std])
 
-    ## Run with Taxi flow as weighted edges
+    # Run with Taxi flow as weighted edges
     W = region_grid.weighted_mtx
     W = W[y_is_valid, :]
     W = W[:, y_is_valid]
@@ -87,6 +87,17 @@ if __name__ == "__main__":
     mse, mse_std, mae, mae_std  = mod_flow.cv_ols()
     results.append(['flow', mse, mse_std, mae, mae_std])
 
+
+    # Run with deepwalk as similarity measure
+    deepwalk = region_grid.load_embedding(c['deepwalk_file'])
+    W_deepwalk = np.matmul(deepwalk, np.transpose(deepwalk))
+    W_deepwalk = W_deepwalk[y_is_valid, :]
+    W_deepwalk = W_deepwalk[:, y_is_valid]
+
+    mod_deepwalk = SimilarityModel(y_house, W_deepwalk)
+
+    mse, mse_std, mae, mae_std  = mod_deepwalk.cv_ols()
+    results.append(['deepwalk', mse, mse_std, mae, mae_std])
 
 
     results = pd.DataFrame(results, columns=['model', 'cv mse', 'std mse', 'cv mae', 'std mae'])
