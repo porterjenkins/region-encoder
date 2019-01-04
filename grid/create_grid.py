@@ -2,10 +2,11 @@ import logging
 import os
 import pickle
 import sys
+
 import numpy
 import pandas
-from scipy import ndimage
 from geopy.distance import distance
+from scipy import ndimage
 from scipy.spatial.distance import euclidean
 
 # this should add files properly
@@ -25,13 +26,19 @@ class RegionGrid:
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
                                                                  rect["lat_max"]
         self.grid_size = grid_size
-        self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], grid_size)
-        self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], grid_size)
+
+        self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], self.grid_size + 1)
+        self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], self.grid_size + 1)
         # create regions, adjacency matrix, degree matrix, and image tensor
-        self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, \
-        self.matrix_idx_map = RegionGrid.create_regions(grid_size, self.x_space,
-                                                        self.y_space, img_dir=img_dir, img_dims=img_dims,
-                                                        load_imgs=load_imgs)
+        self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, self.matrix_idx_map = \
+            RegionGrid.create_regions(
+                grid_size,
+                self.x_space,
+                self.y_space,
+                img_dir=img_dir,
+                img_dims=img_dims,
+                load_imgs=load_imgs
+            )
         # Reverse mapping: index to coordinate name
         self.idx_coor_map = dict(zip(self.matrix_idx_map.values(), self.matrix_idx_map.keys()))
         self.load_poi(poi)
@@ -53,10 +60,17 @@ class RegionGrid:
             long = poi_obj.location.lon
             # probably a better way
             # (tuple(array))
-            # get the index of the bucket , we first find buckets in the space
-            # that are less and pick the last one
-            x_bucket = numpy.where(x_space == x_space[x_space <= lat][-1])[0][0]
-            y_bucket = numpy.where(y_space == y_space[y_space <= long][-1])[0][0]
+
+            # find last point in lin space where this number is smaller or equal since we always increase in lat or long
+            # as we move across the grid
+            # get the index then put it in the bucket before
+            x_bucket = numpy.where(x_space == x_space[lat <= x_space][0])[0][0] - 1
+            y_bucket = numpy.where(y_space == y_space[long <= y_space][0])[0][0] - 1
+
+            if x_bucket == -1:
+                x_bucket = 0
+            if y_bucket == -1:
+                y_bucket = 0
 
             regions[f"{x_bucket},{y_bucket}"].add_poi(poi_obj)
 
@@ -96,9 +110,9 @@ class RegionGrid:
             lat, lon, price, sqft = float(row.lat), float(row.lon), RegionGrid.parse_price(row.sold), float(row.sqft)
             region = self.get_region_for_coor(lat, lon)
             if region is not None:
-                region.add_home(price/sqft)
+                region.add_home(price / sqft)
             else:
-                missed +=1
+                missed += 1
         print(f"{missed} rows Not loaded")
 
     @staticmethod
@@ -113,16 +127,10 @@ class RegionGrid:
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
                 nw, ne, sw, se = None, None, None, None
-                if x_point + 1 < grid_size and y_point + 1 < grid_size:
-                    nw = (x_space[x_point], y_space[y_point])
-                    ne = (x_space[x_point + 1], y_space[y_point])
-                    sw = (x_space[x_point], y_space[y_point + 1])
-                    se = (x_space[x_point + 1], y_space[y_point + 1])
-                else:
-                    if x_point + 1 < grid_size:
-                        ne = (x_space[x_point + 1], y_space[y_point])
-                    if y_point + 1 < grid_size:
-                        sw = (x_space[x_point], y_space[y_point + 1])
+                nw = (x_space[x_point], y_space[y_point])
+                ne = (x_space[x_point + 1], y_space[y_point])
+                sw = (x_space[x_point], y_space[y_point + 1])
+                se = (x_space[x_point + 1], y_space[y_point + 1])
                 r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
                 if load_imgs:
                     r.load_sat_img(img_dir, standarize=std_img)
@@ -344,7 +352,7 @@ class RegionGrid:
 
     def get_target_var(self, target_name):
 
-        y = numpy.zeros(self.grid_size**2)
+        y = numpy.zeros(self.grid_size ** 2)
 
         if target_name == 'house_price':
             n_nan = 0
@@ -369,17 +377,16 @@ class RegionGrid:
         :return: (np.array) Upper-triangular matrix of spatial distances
         """
         print("Creating distance matrix -- metric = {}".format(metric))
-        n_regions = self.grid_size**2
+        n_regions = self.grid_size ** 2
         dist_mtx = numpy.zeros((n_regions, n_regions))
 
         # iterate over regions
         # create upper-triangular matrix for efficiency
         for i, r_i in self.regions.items():
             idx_i = self.matrix_idx_map[i]
-            for idx_j in range(idx_i+1, n_regions):
+            for idx_j in range(idx_i + 1, n_regions):
                 j = self.idx_coor_map[idx_j]
                 r_j = self.regions[j]
-
 
                 print("progress -- i: {}, j: {}".format(i, j), end='\r')
                 if metric == 'euclidean':
@@ -503,29 +510,22 @@ class Region:
         return mid
 
 
-
-
 if __name__ == '__main__':
     c = get_config()
     grid_size = 50
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
+    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=None,
                              housing_data=c["housing_data_file"], load_imgs=False)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
-    cat = region_grid.categories
 
     r = region_grid.regions['0,49']
     xdist, ydist = r.compute_distances()
     x_mid, y_mid = r.compute_midpoint()
 
-    print(region_grid.feature_matrix[r.index])
-    print(numpy.nonzero(region_grid.feature_matrix[r.index]))
-    for cat in region_grid.regions[r.coordinate_name].categories:
-        print(region_grid.categories[cat])
-
-
+    region = region_grid.regions['0,49']
+    print(region.points)
     W = region_grid.weighted_mtx
     I = region_grid.img_tensor
 
@@ -533,5 +533,5 @@ if __name__ == '__main__':
     print(A.shape)
     print(D.shape)
     print(I.shape)
-
-    y_house = region_grid.get_target_var("house_price")
+    #
+    # y_house = region_grid.get_target_var("house_price")
