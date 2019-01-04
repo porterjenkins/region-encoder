@@ -6,6 +6,7 @@ import sys
 import numpy
 import pandas
 from geopy.distance import distance
+from scipy.spatial.distance import euclidean
 from scipy import ndimage
 
 # this should add files properly
@@ -18,7 +19,8 @@ from config import get_config
 
 class RegionGrid:
 
-    def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640)):
+    def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640),
+                 load_imgs=True):
         poi = pickle.load(poi_file)
         rect, self.categories = RegionGrid.handle_poi(poi)
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
@@ -111,7 +113,7 @@ class RegionGrid:
         print(f"{missed} rows Not loaded")
 
     @staticmethod
-    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, std_img=True):
+    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, load_imgs, std_img=True):
         logging.info("Running create regions job")
         regions = {}
         grid_index = {}
@@ -127,9 +129,10 @@ class RegionGrid:
                 sw = (x_space[x_point], y_space[y_point + 1])
                 se = (x_space[x_point + 1], y_space[y_point + 1])
                 r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
-                # r.load_sat_img(img_dir, standarize=std_img)
-                # img_tensor[index, :, :, :] = r.sat_img
-                # print("Initializing region: %s" % r.coordinate_name)
+                if load_imgs:
+                    r.load_sat_img(img_dir, standarize=std_img)
+                    img_tensor[index, :, :, :] = r.sat_img
+                print("Initializing region: %s" % r.coordinate_name)
                 index += 1
                 regions[f"{x_point},{y_point}"] = r
                 for key in RegionGrid.key_gen(x_point, y_point):
@@ -362,6 +365,40 @@ class RegionGrid:
         else:
             raise NotImplementedError("Only 'house_price' is currently implemented")
 
+    def get_distance_mtx(self, metric='euclidean'):
+        """
+        Get pairwise distance matrix of all regions. Default metric is euclidean distance between
+            region_i and region_j
+        Returns an upper-triangular matrix for effeciency
+        :param metric:
+        :return: (np.array) Upper-triangular matrix of spatial distances
+        """
+        print("Creating distance matrix -- metric = {}".format(metric))
+        n_regions = self.grid_size**2
+        dist_mtx = numpy.zeros((n_regions, n_regions))
+
+        # iterate over regions
+        # create upper-triangular matrix for efficiency
+        for i, r_i in self.regions.items():
+            idx_i = self.matrix_idx_map[i]
+            for idx_j in range(idx_i+1, n_regions):
+                j = self.idx_coor_map[idx_j]
+                r_j = self.regions[j]
+
+
+                print("progress -- i: {}, j: {}".format(i, j), end='\r')
+                if metric == 'euclidean':
+                    try:
+                        dist = euclidean(r_i.mid_point, r_j.mid_point)
+                    except ValueError:
+                        dist = numpy.nan
+                else:
+                    raise NotImplementedError("Only metric='euclidean' is currently implemented")
+
+                dist_mtx[idx_i, idx_j] = dist
+
+        return dist_mtx
+
 
 class Region:
 
@@ -371,6 +408,7 @@ class Region:
         self.points = points
         self.categories = set()
         self.nw, self.ne, self.sw, self.se = points['nw'], points['ne'], points['sw'], points['se']
+        self.mid_point = self.compute_midpoint()
         self.poi = []
         self.adjacent = {}
         self.move = self.move_keys()
@@ -455,18 +493,34 @@ class Region:
 
         return x_dist, y_dist
 
+    def compute_midpoint(self):
+
+        try:
+            x_points = [self.points['nw'][0], self.points['ne'][0]]
+            y_points = [self.points['nw'][1], self.points['sw'][1]]
+
+            x_mid = numpy.mean(x_points)
+            y_mid = numpy.mean(y_points)
+            mid = [x_mid, y_mid]
+        except TypeError:
+            mid = numpy.nan
+
+        return mid
+
 
 if __name__ == '__main__':
     c = get_config()
     grid_size = 50
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, housing_data=c["housing_data_file"])
+    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
+                             housing_data=c["housing_data_file"], load_imgs=False)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
 
-    r = region_grid.regions['25,25']
+    r = region_grid.regions['0,49']
     xdist, ydist = r.compute_distances()
+    x_mid, y_mid = r.compute_midpoint()
 
     region = region_grid.regions['0,49']
     print(region.points)
