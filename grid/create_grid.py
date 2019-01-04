@@ -18,17 +18,35 @@ from config import get_config
 
 
 class RegionGrid:
+    """
+    Latitude (North/South):
+        Latitude lines are a numerical way to measure how far north or south of the equator a place is located.
+        The equator is the starting point for measuring latitude--that's why it's marked as 0 degrees latitude.
+        The number of latitude degrees will be larger the further away from the equator the place is located,
+        all the way up to 90 degrees latitude at the poles.
+    Longitude (East/West):
+        Longitude lines are a numerical way to show/measure how far a location is east or west of a universal vertical
+        line called the Prime Meridian. This Prime Meridian line runs vertically, north and south, right over the
+        British Royal Observatory in Greenwich England, from the North Pole to the South Pole.
+        As the vertical starting point for longitude, the Prime Meridian is numbered 0 degrees longitude
+    """
 
     def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640),
-                 load_imgs=True, sample_prob=None):
+                 load_imgs=True, sample_prob=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
         poi = pickle.load(poi_file)
-        rect, self.categories = RegionGrid.handle_poi(poi)
-        self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
-                                                                 rect["lat_max"]
-        self.grid_size = grid_size
+        poi_rect, self.categories = RegionGrid.handle_poi(poi)
+        if lon_min is None or lon_max is None or lat_min is None or lat_max is None:
+            self.lon_min, self.lon_max, self.lat_min, self.lat_max = poi_rect["lon_min"], poi_rect["lon_max"], \
+                                                                     poi_rect["lat_min"], poi_rect["lat_max"]
+        else:
+            self.lon_min = lon_min
+            self.lon_max = lon_max
+            self.lat_min = lat_min
+            self.lat_max = lat_max
 
-        self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], self.grid_size + 1)
-        self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], self.grid_size + 1)
+        self.grid_size = grid_size
+        self.y_space = numpy.linspace(self.lon_min, self.lon_max, self.grid_size + 1)
+        self.x_space = numpy.linspace(self.lat_min, self.lat_max, self.grid_size + 1)
         # create regions, adjacency matrix, degree matrix, and image tensor
         self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, self.matrix_idx_map, grid_partition_map = \
             RegionGrid.create_regions(
@@ -164,7 +182,6 @@ class RegionGrid:
         grid_index = {}
         index = 0
         # init image tensor: n_samples x n_channels x n_rows x n_cols
-        # TODO: Handle image tensor and randomization..
         img_tensor = numpy.zeros((grid_size ** 2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
 
         # Probability of sampling constructing a given region
@@ -178,6 +195,7 @@ class RegionGrid:
 
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
+
 
                 if random.random() < alpha:
                     nw, ne, sw, se = None, None, None, None
@@ -201,10 +219,12 @@ class RegionGrid:
                     grid_partition_map[f"{x_point},{y_point}"] = grid_partition_cntr
                     grid_partition_cntr += 1
 
+
                 else:
                     # only increment counter
                     grid_partition_map[f"{x_point},{y_point}"] = grid_partition_cntr
                     grid_partition_cntr += 1
+
 
 
 
@@ -644,7 +664,7 @@ if __name__ == '__main__':
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
     region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=.01)
+                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=.05)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
 
