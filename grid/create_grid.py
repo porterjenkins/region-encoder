@@ -411,6 +411,19 @@ class RegionGrid:
         row_sums = numpy.where(row_sums == 0, 1, 0)
         return mtx / row_sums
 
+    def write_edge_list(self, fname):
+        with open(fname, 'w') as f:
+            for i, row in enumerate(self.adj_matrix):
+                f.write(str(i) + " ")
+                adj_list = numpy.where(row > 0.0)[0].astype(numpy.int32)
+                for j, neighbor in enumerate(adj_list):
+                    if j == len(adj_list)-1:
+                        f.write(str(neighbor))
+                    else:
+                        f.write(str(neighbor) + " ")
+                f.write("\n")
+
+
 
 class Region:
 
@@ -528,6 +541,8 @@ if __name__ == '__main__':
     region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=None,
                              housing_data=c["housing_data_file"], load_imgs=False)
     A = region_grid.adj_matrix
+    region_grid.write_edge_list(fname=c['edge_list_file'])
+
     D = region_grid.degree_matrix
 
     r = region_grid.regions['0,49']
