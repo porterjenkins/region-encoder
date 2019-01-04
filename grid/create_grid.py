@@ -35,9 +35,13 @@ class RegionGrid:
                  load_imgs=True, sample_prob=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
         poi = pickle.load(poi_file)
         poi_rect, self.categories = RegionGrid.handle_poi(poi)
+
         if lon_min is None or lon_max is None or lat_min is None or lat_max is None:
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max = poi_rect["lon_min"], poi_rect["lon_max"], \
-                                                                     poi_rect["lat_min"], poi_rect["lat_max"]
+            self.lon_min = poi_rect["lon_min"]
+            self.lon_max = poi_rect["lon_max"]
+            self.lat_min = poi_rect["lat_min"]
+            self.lat_max = poi_rect["lat_max"]
+
         else:
             self.lon_min = lon_min
             self.lon_max = lon_max
@@ -664,7 +668,8 @@ if __name__ == '__main__':
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
     region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=.05)
+                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=.05, lat_min=c['lat_min'],
+                             lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
 
