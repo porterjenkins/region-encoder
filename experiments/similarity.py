@@ -44,8 +44,8 @@ class SimilarityModel(object):
             errors[i, 0] = mse
             errors[i, 1] = mae
 
-        mean_cv_err = np.mean(errors, axis=0)
-        std_cv_err = np.std(errors, axis=0)
+        mean_cv_err = np.round(np.mean(errors, axis=0), 4)
+        std_cv_err = np.round(np.std(errors, axis=0), 4)
 
         return mean_cv_err[0], std_cv_err[0], mean_cv_err[1], std_cv_err[1]
 
