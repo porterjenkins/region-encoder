@@ -372,7 +372,8 @@ class RegionGrid:
         """
         Get pairwise distance matrix of all regions. Default metric is euclidean distance between
             region_i and region_j
-        Returns an upper-triangular matrix for effeciency
+        First an upper-triangular matrix for effeciency, then transpose and copy to get full symmetric matrix
+
         :param metric:
         :return: (np.array) Upper-triangular matrix of spatial distances
         """
@@ -398,6 +399,9 @@ class RegionGrid:
                     raise NotImplementedError("Only metric='euclidean' is currently implemented")
 
                 dist_mtx[idx_i, idx_j] = dist
+
+        # Copy upper trianguler matrix to lower triangular matrix and add to distance matrix
+        dist_mtx = dist_mtx + numpy.transpose(dist_mtx)
 
         return dist_mtx
 
