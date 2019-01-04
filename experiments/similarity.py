@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
 from grid.create_grid import RegionGrid
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 import pandas as pd
 
 
@@ -23,7 +23,7 @@ class SimilarityModel(object):
     def cv_ols(self):
         indices = list(range(self.n))
 
-        errors = np.zeros(self.n)
+        errors = np.zeros((self.n, 2))
 
         for i in indices:
 
@@ -40,12 +40,14 @@ class SimilarityModel(object):
             y_hat = ols.predict(X_test)
 
             mse = mean_squared_error(y_true=y_test, y_pred=y_hat)
-            errors[i] = mse
+            mae = mean_absolute_error(y_test, y_hat)
+            errors[i, 0] = mse
+            errors[i, 1] = mae
 
-        mean_cv_err = np.mean(errors)
-        std_cv_err = np.std(errors)
+        mean_cv_err = np.mean(errors, axis=0)
+        std_cv_err = np.std(errors, axis=0)
 
-        return mean_cv_err, std_cv_err, errors
+        return mean_cv_err[0], std_cv_err[0], mean_cv_err[1], std_cv_err[1]
 
 
 
@@ -63,9 +65,8 @@ if __name__ == "__main__":
     y_is_valid = np.where(~np.isnan(y_house))[0]
     y_house = y_house[y_is_valid]
 
-    #W = region_grid.weighted_mtx
-
     results = []
+
 
     # euclidean model
     D_euclidean = region_grid.get_distance_mtx()
@@ -73,13 +74,24 @@ if __name__ == "__main__":
     D_euclidean = D_euclidean[:, y_is_valid]
     mod_euclidean = SimilarityModel(y_house, D_euclidean)
 
-    err_euclidean, std_euclidean, _ = ols_euclidean = mod_euclidean.cv_ols()
-    results.append(['euclidean', err_euclidean, std_euclidean])
+    mse, mse_std, mae, mae_std  = mod_euclidean.cv_ols()
+    results.append(['euclidean', mse, mse_std, mae, mae_std])
+
+    ## Run with Taxi flow as weighted edges
+    W = region_grid.weighted_mtx
+    W = W[y_is_valid, :]
+    W = W[:, y_is_valid]
+
+    mod_flow = SimilarityModel(y_house, W)
+
+    mse, mse_std, mae, mae_std  = mod_flow.cv_ols()
+    results.append(['flow', mse, mse_std, mae, mae_std])
 
 
 
-
-    results = pd.DataFrame(results, columns=['model', 'mean cv error', 'std cv error'])
+    results = pd.DataFrame(results, columns=['model', 'cv mse', 'std mse', 'cv mae', 'std mae'])
     print(results)
 
 
+
+    results.to_csv("similarity-results.csv", index=False)

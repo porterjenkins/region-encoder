@@ -405,6 +405,12 @@ class RegionGrid:
 
         return dist_mtx
 
+    @staticmethod
+    def normalize_mtx(mtx):
+        row_sums = numpy.sum(mtx, axis=1).reshape(-1, 1)
+        row_sums = numpy.where(row_sums == 0, 1, 0)
+        return mtx / row_sums
+
 
 class Region:
 
