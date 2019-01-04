@@ -6,8 +6,8 @@ import sys
 import numpy
 import pandas
 from geopy.distance import distance
-from scipy.spatial.distance import euclidean
 from scipy import ndimage
+from scipy.spatial.distance import euclidean
 
 # this should add files properly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -36,8 +36,11 @@ class RegionGrid:
                 self.x_space,
                 self.y_space,
                 img_dir=img_dir,
-                img_dims=img_dims
+                img_dims=img_dims,
+                load_imgs=load_imgs
             )
+        # Reverse mapping: index to coordinate name
+        self.idx_coor_map = dict(zip(self.matrix_idx_map.values(), self.matrix_idx_map.keys()))
         self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
         # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
@@ -374,17 +377,16 @@ class RegionGrid:
         :return: (np.array) Upper-triangular matrix of spatial distances
         """
         print("Creating distance matrix -- metric = {}".format(metric))
-        n_regions = self.grid_size**2
+        n_regions = self.grid_size ** 2
         dist_mtx = numpy.zeros((n_regions, n_regions))
 
         # iterate over regions
         # create upper-triangular matrix for efficiency
         for i, r_i in self.regions.items():
             idx_i = self.matrix_idx_map[i]
-            for idx_j in range(idx_i+1, n_regions):
+            for idx_j in range(idx_i + 1, n_regions):
                 j = self.idx_coor_map[idx_j]
                 r_j = self.regions[j]
-
 
                 print("progress -- i: {}, j: {}".format(i, j), end='\r')
                 if metric == 'euclidean':
@@ -513,7 +515,7 @@ if __name__ == '__main__':
     grid_size = 50
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
+    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=None,
                              housing_data=c["housing_data_file"], load_imgs=False)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix

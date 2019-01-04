@@ -6,7 +6,7 @@ from config import get_config
 from grid.create_grid import RegionGrid
 
 c = get_config()
-TEST_REGION_GRID = RegionGrid(50, poi_file=open(c["poi_file"], 'rb'))
+TEST_REGION_GRID = RegionGrid(50, poi_file=open(c["poi_file"], 'rb'), load_imgs=False)
 
 
 class CreateGridTest(unittest.TestCase):
