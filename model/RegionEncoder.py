@@ -240,11 +240,12 @@ class RegionEncoder(nn.Module):
 
         optimizer = self.get_optimizer(lr=lr)
 
+        region_mtx_map = region_grid.matrix_idx_map
+
         A = region_grid.adj_matrix
         D = region_grid.degree_matrix
         W = region_grid.weighted_mtx
         X = region_grid.feature_matrix
-
         # preprocess step for graph matrices
         A_hat = self.__preprocess_adj(A)
         D_hat = self.__preprocess_degree(D)
@@ -259,18 +260,19 @@ class RegionEncoder(nn.Module):
 
         batch_size = A.shape[0]
 
-        region_mtx_map = region_grid.matrix_idx_map
 
         # Ground truth for discriminator
         eta = self.__get_eta(batch_size)
         # ground truth for spatial reconstruction
         gamma = self.__get_gamma(batch_size)
 
+        print("Beginning training job: epochs: {}, batch size: {}".format(epochs, batch_size))
         for i in range(epochs):
 
             optimizer.zero_grad()
             # forward + backward + optimize
-            logits, h_global, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat, img_tensor=img_tensor)
+            logits, h_global, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat,
+                                                                                         img_tensor=img_tensor)
             # generate positive samples for gcn
             gcn_pos_samples = self.__gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
@@ -296,7 +298,7 @@ if __name__ == "__main__":
     c = get_config()
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
+    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'], load_imgs=False)
 
     mod = RegionEncoder(n_nodes=2500, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
     mod.run_train_job(region_grid, epochs=100, lr=.05)

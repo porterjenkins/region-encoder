@@ -2,7 +2,7 @@ import logging
 import os
 import pickle
 import sys
-
+import random
 import numpy
 import pandas
 from geopy.distance import distance
@@ -20,7 +20,7 @@ from config import get_config
 class RegionGrid:
 
     def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640),
-                 load_imgs=True):
+                 load_imgs=True, sample_prob=None):
         poi = pickle.load(poi_file)
         rect, self.categories = RegionGrid.handle_poi(poi)
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = rect["lon_min"], rect["lon_max"], rect["lat_min"], \
@@ -30,15 +30,18 @@ class RegionGrid:
         self.y_space = numpy.linspace(rect['lon_min'], rect['lon_max'], self.grid_size + 1)
         self.x_space = numpy.linspace(rect['lat_min'], rect['lat_max'], self.grid_size + 1)
         # create regions, adjacency matrix, degree matrix, and image tensor
-        self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, self.matrix_idx_map = \
+        self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, self.matrix_idx_map, grid_partition_map = \
             RegionGrid.create_regions(
                 grid_size,
                 self.x_space,
                 self.y_space,
                 img_dir=img_dir,
                 img_dims=img_dims,
-                load_imgs=load_imgs
+                load_imgs=load_imgs,
+                sample_prob=sample_prob,
+                std_img=True
             )
+        self.n_regions = len(self.regions)
         # Reverse mapping: index to coordinate name
         self.idx_coor_map = dict(zip(self.matrix_idx_map.values(), self.matrix_idx_map.keys()))
         self.load_poi(poi)
@@ -47,6 +50,10 @@ class RegionGrid:
 
         if w_mtx_file is not None and os.path.isfile(w_mtx_file):
             self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
+            if sample_prob is not None:
+                # Update weighted matrix to reflect sampled regions
+                self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
+                                                                       grid_partition_map)
 
         if housing_data is not None and os.path.isfile(housing_data):
             self.load_housing_data(housing_data)
@@ -72,7 +79,12 @@ class RegionGrid:
             if y_bucket == -1:
                 y_bucket = 0
 
-            regions[f"{x_bucket},{y_bucket}"].add_poi(poi_obj)
+            # try and add poi data to corresponding region
+            # if region is does not exist, due to random sampling, skip poi data object
+            try:
+                regions[f"{x_bucket},{y_bucket}"].add_poi(poi_obj)
+            except KeyError:
+                pass
 
     def get_region_for_coor(self, lat, long):
         if lat < self.lat_min or lat > self.lat_max:
@@ -96,6 +108,27 @@ class RegionGrid:
         return None
 
     @staticmethod
+    def update_arr_two_dim_sampled(arr, regions, grid_partition_map):
+        old_shape = arr.shape
+        new_shape = list(old_shape)
+        new_shape[0] = len(regions)
+        new_shape[1] = len(regions)
+
+        arr_new = numpy.zeros(new_shape)
+
+        i = 0
+        for coor_i, r_i in regions.items():
+            j = 0
+            for coor_j, r_j in regions.items():
+                old_idx_i = grid_partition_map[coor_i]
+                old_idx_j = grid_partition_map[coor_j]
+                arr_new[i, j] = arr[old_idx_i, old_idx_j]
+                j += 1
+            i += 1
+
+        return arr_new
+
+    @staticmethod
     def parse_price(price):
         price = price.lower()
         if "m" in price:
@@ -116,36 +149,58 @@ class RegionGrid:
         print(f"{missed} rows Not loaded")
 
     @staticmethod
-    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, load_imgs, std_img=True):
+    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, load_imgs, std_img, sample_prob):
         logging.info("Running create regions job")
         regions = {}
         grid_index = {}
         index = 0
         # init image tensor: n_samples x n_channels x n_rows x n_cols
+        # TODO: Handle image tensor and randomization..
         img_tensor = numpy.zeros((grid_size ** 2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
+
+        # Probability of sampling constructing a given region
+        if sample_prob is not None:
+            alpha = sample_prob
+        else:
+            alpha = 1.0
+
+        grid_partition_map = {}
+        grid_partition_cntr = 0
 
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
-                nw, ne, sw, se = None, None, None, None
-                nw = (x_space[x_point], y_space[y_point])
-                ne = (x_space[x_point + 1], y_space[y_point])
-                sw = (x_space[x_point], y_space[y_point + 1])
-                se = (x_space[x_point + 1], y_space[y_point + 1])
-                r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
-                if load_imgs:
-                    r.load_sat_img(img_dir, standarize=std_img)
-                    img_tensor[index, :, :, :] = r.sat_img
-                print("Initializing region: %s" % r.coordinate_name)
-                index += 1
-                regions[f"{x_point},{y_point}"] = r
-                for key in RegionGrid.key_gen(x_point, y_point):
-                    if key in grid_index:
-                        grid_index[key].append(r)
-                    else:
-                        grid_index[key] = [r]
+
+                if random.random() < alpha:
+                    nw, ne, sw, se = None, None, None, None
+                    nw = (x_space[x_point], y_space[y_point])
+                    ne = (x_space[x_point + 1], y_space[y_point])
+                    sw = (x_space[x_point], y_space[y_point + 1])
+                    se = (x_space[x_point + 1], y_space[y_point + 1])
+                    r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
+                    if load_imgs:
+                        r.load_sat_img(img_dir, standarize=std_img)
+                        img_tensor[index, :, :, :] = r.sat_img
+                    print("Initializing region: %s" % r.coordinate_name)
+                    index += 1
+                    regions[f"{x_point},{y_point}"] = r
+                    for key in RegionGrid.key_gen(x_point, y_point):
+                        if key in grid_index:
+                            grid_index[key].append(r)
+                        else:
+                            grid_index[key] = [r]
+
+                    grid_partition_map[f"{x_point},{y_point}"] = grid_partition_cntr
+                    grid_partition_cntr += 1
+
+                else:
+                    # only increment counter
+                    grid_partition_map[f"{x_point},{y_point}"] = grid_partition_cntr
+                    grid_partition_cntr += 1
+
+
 
         # adjacency matrix
-        v = pow(grid_size, 2)
+        v = len(regions)
         # all zeroes
         matrix = numpy.zeros((v, v))
         # mapping of region coordinate to index
@@ -172,7 +227,12 @@ class RegionGrid:
             for adj_region in adj.values():
                 adj_index = adj_region.index
                 matrix[index][adj_index] = 1
-        return regions, matrix, RegionGrid.get_degree_mtx(matrix), img_tensor, coor_index_mapping
+
+        # Update image tensor to correct dimensions, if sampling is used
+        if sample_prob is not None:
+            img_tensor = img_tensor[range(v), :, :, :]
+
+        return regions, matrix, RegionGrid.get_degree_mtx(matrix), img_tensor, coor_index_mapping, grid_partition_map
 
     @staticmethod
     def get_degree_mtx(A):
@@ -223,7 +283,7 @@ class RegionGrid:
 
     def create_feature_matrix(self):
         regions = self.regions
-        n = pow(self.grid_size, 2)
+        n = self.n_regions
         m = len(self.categories)
         print(f"Creating Feature Matrix of size {n} X {m}")
         feature_matrix = numpy.zeros(shape=(n, m))
@@ -280,7 +340,7 @@ class RegionGrid:
 
     def create_flow_matrix(self, fname, n_rows=None):
         """
-        Generated a weighted matrix (dims: grid_size**2 x grid_size) from taxi flow data
+        Generated a weighted matrix (dims: n_regions x n_regions) from taxi flow data
          (https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew)
             - raw data has approx 99M rows
 
@@ -289,8 +349,7 @@ class RegionGrid:
         :return: (np.array) 2-d weighted flow matrix
         """
 
-        n_regions = self.grid_size ** 2
-        flow_matrix = numpy.zeros((n_regions, n_regions))
+        flow_matrix = numpy.zeros((self.n_regions, self.n_regions))
         # index given by chicago data portal docs
         drop_lat_idx = 20
         drop_lon_idx = 21
@@ -352,7 +411,7 @@ class RegionGrid:
 
     def get_target_var(self, target_name):
 
-        y = numpy.zeros(self.grid_size ** 2)
+        y = numpy.zeros(self.n_regions)
 
         if target_name == 'house_price':
             n_nan = 0
@@ -363,7 +422,7 @@ class RegionGrid:
                     n_nan += 1
                 y[idx] = val
 
-            print("Pct of regions with missing zillow prices: {}".format(n_nan / (self.grid_size ** 2)))
+            print("Pct of regions with missing zillow prices: {}".format(n_nan / (self.n_regions)))
             return y
         else:
             raise NotImplementedError("Only 'house_price' is currently implemented")
@@ -378,14 +437,14 @@ class RegionGrid:
         :return: (np.array) Upper-triangular matrix of spatial distances
         """
         print("Creating distance matrix -- metric = {}".format(metric))
-        n_regions = self.grid_size ** 2
-        dist_mtx = numpy.zeros((n_regions, n_regions))
+
+        dist_mtx = numpy.zeros((self.n_regions, self.n_regions))
 
         # iterate over regions
         # create upper-triangular matrix for efficiency
         for i, r_i in self.regions.items():
             idx_i = self.matrix_idx_map[i]
-            for idx_j in range(idx_i + 1, n_regions):
+            for idx_j in range(idx_i + 1, self.n_regions):
                 j = self.idx_coor_map[idx_j]
                 r_j = self.regions[j]
 
@@ -575,19 +634,18 @@ if __name__ == '__main__':
     grid_size = 50
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=None,
-                             housing_data=c["housing_data_file"], load_imgs=False)
+    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
+                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=.01)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
 
-    deepwalk = region_grid.load_embedding(c['deepwalk_file'])
 
-    r = region_grid.regions['0,49']
-    xdist, ydist = r.compute_distances()
-    x_mid, y_mid = r.compute_midpoint()
+    #r = region_grid.regions['0,49']
+    #xdist, ydist = r.compute_distances()
+    #x_mid, y_mid = r.compute_midpoint()
 
-    region = region_grid.regions['0,49']
-    print(region.points)
+    #region = region_grid.regions['0,49']
+    #print(region.points)
     W = region_grid.weighted_mtx
     I = region_grid.img_tensor
 
@@ -596,4 +654,8 @@ if __name__ == '__main__':
     print(D.shape)
     print(I.shape)
     #
-    # y_house = region_grid.get_target_var("house_price")
+    y_house = region_grid.get_target_var("house_price")
+    print(y_house.shape)
+
+
+    print(I)
