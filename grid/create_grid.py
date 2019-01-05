@@ -1,8 +1,9 @@
 import logging
 import os
 import pickle
-import sys
 import random
+import sys
+
 import numpy
 import pandas
 from geopy.distance import distance
@@ -75,7 +76,7 @@ class RegionGrid:
             if sample_prob is not None:
                 # Update weighted matrix to reflect sampled regions
                 self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
-                                                                       grid_partition_map)
+                                                                          grid_partition_map)
 
         if housing_data is not None and os.path.isfile(housing_data):
             self.load_housing_data(housing_data)
@@ -200,7 +201,6 @@ class RegionGrid:
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
 
-
                 if random.random() < alpha:
                     nw, ne, sw, se = None, None, None, None
                     nw = (x_space[x_point], y_space[y_point])
@@ -228,9 +228,6 @@ class RegionGrid:
                     # only increment counter
                     grid_partition_map[f"{x_point},{y_point}"] = grid_partition_cntr
                     grid_partition_cntr += 1
-
-
-
 
         # adjacency matrix
         v = len(regions)
@@ -514,12 +511,11 @@ class RegionGrid:
                 f.write(str(i) + " ")
                 adj_list = numpy.where(row > 0.0)[0].astype(numpy.int32)
                 for j, neighbor in enumerate(adj_list):
-                    if j == len(adj_list)-1:
+                    if j == len(adj_list) - 1:
                         f.write(str(neighbor))
                     else:
                         f.write(str(neighbor) + " ")
                 f.write("\n")
-
 
     def load_embedding(self, fname):
         """
@@ -662,6 +658,11 @@ class Region:
         return mid
 
 
+def get_images_for_grid(region_grid):
+    from image.image_retrieval import get_images_for_all_no_marker
+    get_images_for_all_no_marker(region_grid)
+
+
 if __name__ == '__main__':
     c = get_config()
     grid_size = 50
@@ -690,6 +691,5 @@ if __name__ == '__main__':
     #
     y_house = region_grid.get_target_var("house_price")
     print(y_house.shape)
-
 
     print(I)

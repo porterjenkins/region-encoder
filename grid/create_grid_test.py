@@ -4,12 +4,17 @@ import numpy
 
 from config import get_config
 from grid.create_grid import RegionGrid
+from image.image_retrieval import get_images_for_all_no_marker
 
 c = get_config()
 TEST_REGION_GRID = RegionGrid(50, poi_file=open(c["poi_file"], 'rb'), load_imgs=False)
 
 
 class CreateGridTest(unittest.TestCase):
+
+    def test_image_creation(self):
+        print("Get Images")
+        # get_images_for_all_no_marker(TEST_REGION_GRID, "image_2")
 
     def test_basic_region(self):
         self.assertEqual(len(TEST_REGION_GRID.regions), 2500)
