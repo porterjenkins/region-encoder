@@ -609,7 +609,7 @@ class Region:
     def load_sat_img(self, img_dir, standarize):
         coors_split = self.coordinate_name.split(",")
         coors = "-".join(coors_split)
-        fname = "{}/{}.jpg".format(img_dir, coors)
+        fname = "{}/{}.png".format(img_dir, coors)
         img = ndimage.imread(fname)
         img_t = numpy.transpose(img).astype(numpy.float32)
 
@@ -659,11 +659,10 @@ def get_images_for_grid(region_grid):
 
 if __name__ == '__main__':
     c = get_config()
-    grid_size = 5
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=False, sample_prob=None,
+    region_grid = RegionGrid(grid_size=c['grid_size'], poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
+                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=None,
                              lat_min=c['lat_min'], lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
@@ -676,12 +675,12 @@ if __name__ == '__main__':
     #region = region_grid.regions['0,49']
     #print(region.points)
     W = region_grid.weighted_mtx
-    #I = region_grid.img_tensor
+    I = region_grid.img_tensor
 
     print(W.shape)
     print(A.shape)
     print(D.shape)
-    #print(I.shape)
+    print(I.shape)
     #
     y_house = region_grid.get_target_var("house_price")
     print(y_house.shape)
