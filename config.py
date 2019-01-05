@@ -11,6 +11,9 @@ def get_config():
         if 'file' in key:
             config[key] = config['data_dir_main'] + val
 
+        if 'lat' in key or 'lon' in key:
+            config[key] = float(val)
+
     return config
 
 

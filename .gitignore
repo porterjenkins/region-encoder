@@ -12,3 +12,5 @@ chicago
 
 # PyTorch tutorials
 tutorials
+
+*.log

@@ -1,5 +1,9 @@
 from deepwalk.__main__ import process
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
+
 
 class DWparams(object):
     def __init__(self, input, format, undirected, output, number_walks, representation_size, walk_length):
