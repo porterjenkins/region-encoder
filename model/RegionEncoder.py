@@ -248,8 +248,7 @@ class RegionEncoder(nn.Module):
         X = region_grid.feature_matrix
         # preprocess step for graph matrices
         A_hat = self.__preprocess_adj(A)
-        #D_hat = self.__preprocess_degree(D)
-        D_hat = D
+        D_hat = self.__preprocess_degree(D)
 
         # Cast matrices to torch.tensor
         A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
@@ -299,9 +298,11 @@ if __name__ == "__main__":
     c = get_config()
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'], load_imgs=True,
-                             sample_prob=.05)
+    region_grid = RegionGrid(grid_size=c['grid_size'], poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
+                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=None,
+                             lat_min=c['lat_min'], lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
+
     n_nodes = len(region_grid.regions)
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    mod.run_train_job(region_grid, epochs=100, lr=.05)
+    mod.run_train_job(region_grid, epochs=100, lr=.001)
 

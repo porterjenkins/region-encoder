@@ -14,6 +14,9 @@ def get_config():
         if 'lat' in key or 'lon' in key:
             config[key] = float(val)
 
+        if key == 'grid_size':
+            config[key] = int(val)
+
     return config
 
 

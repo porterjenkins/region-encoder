@@ -19,10 +19,11 @@ The project uses a config file (called config.json) to do basic setup (e.g., poi
 	"raw_flow_file": "taxi-trips.csv",
 	"flow_mtx_file": "flow_mtx.p",
 	"housing_data_file": "zillow_house_price.csv",
-	"lon_min": "41.65021997246178",
-	"lon_max": "42.02126162051242",
-	"lat_min": "-87.90448852338",
-	"lat_max": "-87.53049651540705",
+	"lon_min": "-87.6998",
+	"lon_max": "-87.6065",
+	"lat_min": "41.8542",
+	"lat_max": "41.9013",
+	"grid_size": "5",
 	"g_maps_key": "xxxxyyyxxxx",
 	"path_to_image_dir": "foo/bar/city/images_no_marker"
 }

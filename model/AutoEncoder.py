@@ -157,7 +157,7 @@ if __name__ == "__main__":
     c = get_config()
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(50, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
+    region_grid = RegionGrid(grid_size=c['grid_size'], poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
     region_grid.img_tens_get_size()
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
