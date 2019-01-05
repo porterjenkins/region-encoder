@@ -68,3 +68,6 @@ def download_image(url, fn):
         print('Waiting', current_delay, 'seconds before retrying.')
         time.sleep(current_delay)
         current_delay *= 2
+
+
+
