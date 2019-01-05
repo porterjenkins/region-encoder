@@ -1,8 +1,9 @@
 import logging
 import os
 import pickle
-import sys
 import random
+import sys
+
 import numpy
 import pandas
 from geopy.distance import distance
@@ -32,7 +33,7 @@ class RegionGrid:
     """
 
     def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640),
-                 load_imgs=True, sample_prob=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+                 load_imgs=False, sample_prob=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
         poi = pickle.load(poi_file)
         poi_rect, self.categories = RegionGrid.handle_poi(poi)
 
@@ -49,7 +50,9 @@ class RegionGrid:
             self.lat_max = lat_max
 
         self.grid_size = grid_size
+        # define y space with longitude
         self.y_space = numpy.linspace(self.lon_min, self.lon_max, self.grid_size + 1)
+        # define x space latitude
         self.x_space = numpy.linspace(self.lat_min, self.lat_max, self.grid_size + 1)
         # create regions, adjacency matrix, degree matrix, and image tensor
         self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, self.matrix_idx_map, grid_partition_map = \
@@ -75,7 +78,7 @@ class RegionGrid:
             if sample_prob is not None:
                 # Update weighted matrix to reflect sampled regions
                 self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
-                                                                       grid_partition_map)
+                                                                          grid_partition_map)
 
         if housing_data is not None and os.path.isfile(housing_data):
             self.load_housing_data(housing_data)
@@ -87,24 +90,12 @@ class RegionGrid:
         for id, poi_obj in poi.items():
             lat = poi_obj.location.lat
             long = poi_obj.location.lon
-            # probably a better way
-            # (tuple(array))
-
-            # find last point in lin space where this number is smaller or equal since we always increase in lat or long
-            # as we move across the grid
-            # get the index then put it in the bucket before
-            x_bucket = numpy.where(x_space == x_space[lat <= x_space][0])[0][0] - 1
-            y_bucket = numpy.where(y_space == y_space[long <= y_space][0])[0][0] - 1
-
-            if x_bucket == -1:
-                x_bucket = 0
-            if y_bucket == -1:
-                y_bucket = 0
-
+            region_coor = self._map_to_region(lat_lon=(lat, long))
             # try and add poi data to corresponding region
-            # if region is does not exist, due to random sampling, skip poi data object
+            # if region is does not exist, due to random sampling, or out of bounds, skip poi data object
             try:
-                regions[f"{x_bucket},{y_bucket}"].add_poi(poi_obj)
+                regions[region_coor].add_poi(poi_obj)
+
             except KeyError:
                 pass
 
@@ -177,7 +168,7 @@ class RegionGrid:
                 region.add_home(price / sqft)
             else:
                 missed += 1
-        print(f"{missed} rows Not loaded")
+        print(f"{missed} rows of zillow data not loaded")
 
     @staticmethod
     def create_regions(grid_size, x_space, y_space, img_dir, img_dims, load_imgs, std_img, sample_prob):
@@ -199,7 +190,6 @@ class RegionGrid:
 
         for x_point in range(0, grid_size):
             for y_point in range(0, grid_size):
-
 
                 if random.random() < alpha:
                     nw, ne, sw, se = None, None, None, None
@@ -228,9 +218,6 @@ class RegionGrid:
                     # only increment counter
                     grid_partition_map[f"{x_point},{y_point}"] = grid_partition_cntr
                     grid_partition_cntr += 1
-
-
-
 
         # adjacency matrix
         v = len(regions)
@@ -381,6 +368,8 @@ class RegionGrid:
         :param n_rows: (int) optional: only take first n rows from file
         :return: (np.array) 2-d weighted flow matrix
         """
+        # approx 99M rows
+        row_total = 99e6
 
         flow_matrix = numpy.zeros((self.n_regions, self.n_regions))
         # index given by chicago data portal docs
@@ -416,14 +405,16 @@ class RegionGrid:
                             flow_matrix[p_idx, d_idx] += 1.0
                             sample_cnt += 1
 
-                            if sample_cnt % 10000 == 0:
-                                print("{}: {}, {} --> {}".format(row_cntr, sample_cnt, trip_pickup, trip_drop))
+                            if sample_cnt % 100 == 0:
+                                progress = row_cntr / row_total
+                                print("{:.4f}: {}, {} --> {}".format(progress, sample_cnt, trip_pickup, trip_drop),
+                                      end="\r")
 
                             if n_rows is not None:
                                 if sample_cnt >= n_rows:
                                     break
 
-                        except ValueError:
+                        except (ValueError, KeyError) as err:
                             pass
 
                 row_cntr += 1
@@ -514,12 +505,11 @@ class RegionGrid:
                 f.write(str(i) + " ")
                 adj_list = numpy.where(row > 0.0)[0].astype(numpy.int32)
                 for j, neighbor in enumerate(adj_list):
-                    if j == len(adj_list)-1:
+                    if j == len(adj_list) - 1:
                         f.write(str(neighbor))
                     else:
                         f.write(str(neighbor) + " ")
                 f.write("\n")
-
 
     def load_embedding(self, fname):
         """
@@ -662,14 +652,19 @@ class Region:
         return mid
 
 
+def get_images_for_grid(region_grid):
+    from image.image_retrieval import get_images_for_all_no_marker
+    get_images_for_all_no_marker(region_grid)
+
+
 if __name__ == '__main__':
     c = get_config()
-    grid_size = 50
+    grid_size = 5
     file = open(c["poi_file"], 'rb')
     img_dir = c['path_to_image_dir']
     region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=.05, lat_min=c['lat_min'],
-                             lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
+                             housing_data=c["housing_data_file"], load_imgs=False, sample_prob=None,
+                             lat_min=c['lat_min'], lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
 
@@ -681,15 +676,14 @@ if __name__ == '__main__':
     #region = region_grid.regions['0,49']
     #print(region.points)
     W = region_grid.weighted_mtx
-    I = region_grid.img_tensor
+    #I = region_grid.img_tensor
 
     print(W.shape)
     print(A.shape)
     print(D.shape)
-    print(I.shape)
+    #print(I.shape)
     #
     y_house = region_grid.get_target_var("house_price")
     print(y_house.shape)
 
-
-    print(I)
+    #print(I)
