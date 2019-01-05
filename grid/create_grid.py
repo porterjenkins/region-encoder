@@ -33,7 +33,7 @@ class RegionGrid:
     """
 
     def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640),
-                 load_imgs=True, sample_prob=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+                 load_imgs=False, sample_prob=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
         poi = pickle.load(poi_file)
         poi_rect, self.categories = RegionGrid.handle_poi(poi)
 
@@ -368,6 +368,8 @@ class RegionGrid:
         :param n_rows: (int) optional: only take first n rows from file
         :return: (np.array) 2-d weighted flow matrix
         """
+        # approx 99M rows
+        row_total = 99e6
 
         flow_matrix = numpy.zeros((self.n_regions, self.n_regions))
         # index given by chicago data portal docs
@@ -403,14 +405,16 @@ class RegionGrid:
                             flow_matrix[p_idx, d_idx] += 1.0
                             sample_cnt += 1
 
-                            if sample_cnt % 10000 == 0:
-                                print("{}: {}, {} --> {}".format(row_cntr, sample_cnt, trip_pickup, trip_drop))
+                            if sample_cnt % 100 == 0:
+                                progress = row_cntr / row_total
+                                print("{:.4f}: {}, {} --> {}".format(progress, sample_cnt, trip_pickup, trip_drop),
+                                      end="\r")
 
                             if n_rows is not None:
                                 if sample_cnt >= n_rows:
                                     break
 
-                        except ValueError:
+                        except (ValueError, KeyError) as err:
                             pass
 
                 row_cntr += 1
