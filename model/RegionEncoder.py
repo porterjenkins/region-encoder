@@ -21,7 +21,8 @@ class RegionEncoder(nn.Module):
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
-                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01, img_dims=(640,640)):
+                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01, img_dims=(640,640),
+                 n_neg_samples=None):
         super(RegionEncoder, self).__init__()
         # Model Layers
         self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph, n_classes=4)
@@ -38,8 +39,13 @@ class RegionEncoder(nn.Module):
         self.cross_entropy = nn.CrossEntropyLoss()
         self.bce_logits = nn.BCEWithLogitsLoss()
 
-    def forward(self, X, A, D, img_tensor):
+        if n_neg_samples is None:
+            self.n_neg_samples = n_nodes
+        else:
+            self.n_neg_samples = n_neg_samples
+        self.n_nodes = n_nodes
 
+    def forward(self, X, A, D, img_tensor):
 
         # Forward step for graph data
         h_graph = self.graph_conv_net.forward(X, A, D)
@@ -48,10 +54,17 @@ class RegionEncoder(nn.Module):
         # Forward step for image data
         image_hat, h_image = self.auto_encoder.forward(img_tensor)
 
-        # forward step for discriminator (all data)
-        logits, h_global = self.discriminator.forward(x=h_graph, z=h_image, activation=False)
+        # generate negative samples for discriminator
+        h_graph_neg, h_img_neg = self.__gen_neg_samples_disc(h_graph, h_image)
 
-        return logits, h_global, image_hat, graph_proximity, h_graph, h_image
+        # concat positive and negatives samples for discriminator
+        h_graph_cat = torch.cat([h_graph, h_graph_neg], dim=0)
+        h_img_cat = torch.cat([h_image, h_img_neg], dim=0)
+
+        # forward step for discriminator (all data)
+        logits, h_global = self.discriminator.forward(x=h_graph_cat, z=h_img_cat, activation=False)
+
+        return logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg, h_img_neg
 
 
     def _get_weighted_proximity(self, h_graph):
@@ -173,34 +186,6 @@ class RegionEncoder(nn.Module):
 
         return D
 
-    def __get_eta(self, batch_size):
-        eta = torch.zeros((batch_size, 2), dtype=torch.float)
-        for i in range(batch_size):
-            alpha = np.random.rand()
-
-            if alpha < .25:
-                eta[i, 1] = 1
-            else:
-                eta[i, 0] = 1
-
-        return eta
-
-    def __get_gamma(self, batch_size):
-        gamma = torch.zeros((batch_size, 2), dtype=torch.float)
-
-        for i in range(batch_size):
-            beta = np.random.rand()
-
-            if beta < .33:
-                gamma[i, 1] = 1
-            else:
-                gamma[i, 0] = 1
-
-        return gamma
-
-    def __gen_neg_samples_discriminator(self):
-        pass
-
     def __gen_pos_samples_gcn(self, regions, idx_map, h_graph, batch_size):
         pos_sample_map = dict()
         n_h_dims = h_graph.shape[1]
@@ -234,6 +219,33 @@ class RegionEncoder(nn.Module):
 
         return neg_samples
 
+    def __gen_eta(self, pos_tens, neg_tens):
+
+        eta = torch.zeros(pos_tens.shape[0] + neg_tens.shape[0], 2)
+        # Positive labels
+        eta[:pos_tens.shape[0], 1] = 1
+        # negative labels
+        eta[-neg_tens.shape[0]:, 0] = 1
+
+
+        return eta
+
+    def __gen_neg_samples_disc(self, h_graph, h_image):
+        idx = np.arange(self.n_nodes)
+        #eta = torch.zeros(self.n_nodes + self.n_neg_samples)
+        #eta[:self.n_nodes] = 1
+
+        neg_idx_graph = np.random.choice(idx, size=self.n_neg_samples, replace=True)
+        neg_idx_image = np.random.choice(idx, size=self.n_neg_samples, replace=True)
+
+        print("Incorrectly labelled discriminator neg samples: {}".format(np.sum(neg_idx_graph == neg_idx_image)))
+
+        h_graph_neg = h_graph[neg_idx_graph,:]
+        h_img_neg = h_image[neg_idx_image, :]
+
+
+        return h_graph_neg, h_img_neg
+
 
 
     def run_train_job(self,region_grid, epochs, lr, n_neg_samples=15):
@@ -260,23 +272,21 @@ class RegionEncoder(nn.Module):
 
         batch_size = A.shape[0]
 
-
-        # Ground truth for discriminator
-        eta = self.__get_eta(batch_size)
-        # ground truth for spatial reconstruction
-        gamma = self.__get_gamma(batch_size)
-
         print("Beginning training job: epochs: {}, batch size: {}".format(epochs, batch_size))
         for i in range(epochs):
 
             optimizer.zero_grad()
             # forward + backward + optimize
-            logits, h_global, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat,
-                                                                                         img_tensor=img_tensor)
+            logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg,\
+            h_image_neg = mod.forward(X=X, A=A_hat, D=D_hat, img_tensor=img_tensor)
+
             # generate positive samples for gcn
             gcn_pos_samples = self.__gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
-            gcn_neg_samples = self.__gen_neg_samples_gcn(n_neg_samples, A, h_graph, region_mtx_map, batch_size)
+            gcn_neg_samples = self.__gen_neg_samples_gcn(self.n_neg_samples, A, h_graph, region_mtx_map, batch_size)
+
+            # get labels for discriminator
+            eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
 
             # Get different objectives
             L_graph = self.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
@@ -296,13 +306,10 @@ class RegionEncoder(nn.Module):
 
 if __name__ == "__main__":
     c = get_config()
-    file = open(c["poi_file"], 'rb')
-    img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size=c['grid_size'], poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=None,
-                             lat_min=c['lat_min'], lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
-
+    region_grid = RegionGrid(config=c, load_imgs=True)
     n_nodes = len(region_grid.regions)
+
+    # TODO: Normalize weight matrix
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    mod.run_train_job(region_grid, epochs=100, lr=.0001)
+    mod.run_train_job(region_grid, epochs=100, lr=.01)
 

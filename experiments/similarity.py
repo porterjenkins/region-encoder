@@ -55,11 +55,7 @@ class SimilarityModel(object):
 if __name__ == "__main__":
 
     c = get_config()
-    grid_size = 50
-    file = open(c["poi_file"], 'rb')
-    img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=False)
+    region_grid = RegionGrid(config=c, load_imgs=False)
 
     y_house = region_grid.get_target_var("house_price")
     y_is_valid = np.where(~np.isnan(y_house))[0]
