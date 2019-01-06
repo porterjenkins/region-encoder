@@ -304,5 +304,5 @@ if __name__ == "__main__":
 
     n_nodes = len(region_grid.regions)
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    mod.run_train_job(region_grid, epochs=100, lr=.001)
+    mod.run_train_job(region_grid, epochs=100, lr=.0001)
 
