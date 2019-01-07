@@ -281,8 +281,22 @@ class RegionEncoder(nn.Module):
 
                 f.write("\n")
 
+    def __earling_stop(self, seq, tol, order):
+        """
+        Determine early stopping of training job
+        :param seq:
+        :param tol:
+        :param order:
+        :return:
+        """
+        avg_change = np.mean(np.diff(seq[-order:]))
+        if avg_change <= tol:
+            return True
+        else:
+            return False
 
-    def run_train_job(self,region_grid, epochs, lr, n_neg_samples=15):
+
+    def run_train_job(self,region_grid, epochs, lr, tol=.0001, tol_order=5):
 
         optimizer = self.get_optimizer(lr=lr)
 
@@ -305,8 +319,9 @@ class RegionEncoder(nn.Module):
         img_tensor = torch.Tensor(region_grid.img_tensor)
 
         batch_size = A.shape[0]
-
         print("Beginning training job: epochs: {}, batch size: {}".format(epochs, batch_size))
+
+        loss_seq = list()
         for i in range(epochs):
 
             optimizer.zero_grad()
@@ -318,9 +333,10 @@ class RegionEncoder(nn.Module):
             gcn_pos_samples = self.__gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
             gcn_neg_samples = self.__gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph, region_mtx_map, batch_size)
-
             # get labels for discriminator
             eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
+            # Add noise to images
+            #img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25)
 
             # Get different objectives
             L_graph = self.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
@@ -331,9 +347,15 @@ class RegionEncoder(nn.Module):
             loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae)
             loss.backward()
             optimizer.step()
-            # print statistics
-            # loss.item()
-            print("Epoch: {}, Train Loss {:.4f}".format(i+1, loss.item()))
+            loss_seq.append(loss.item())
+
+            if np.isnan(loss_seq[-1]):
+                print("Exploding/Vanishing gradient: loss = nan")
+                break
+            elif self.__earling_stop(loss_seq, tol, tol_order):
+                pass
+            else:
+                print("Epoch: {}, Train Loss {:.4f}".format(i+1, loss_seq[-1]))
 
         self.embedding = h_global
 
@@ -347,7 +369,7 @@ if __name__ == "__main__":
     n_nodes = len(region_grid.regions)
 
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=0.1, neg_samples_gcn=10)
-    mod.run_train_job(region_grid, epochs=50, lr=.01)
+    mod.run_train_job(region_grid, epochs=100, lr=.005)
     mod.write_embeddings(c['embedding_file'])
 
 
