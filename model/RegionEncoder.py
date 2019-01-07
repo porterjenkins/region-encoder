@@ -121,13 +121,11 @@ class RegionEncoder(nn.Module):
 
         neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=-1)
         neg_dot_sig = torch.sigmoid(neg_dot)
-        #l_neg_samples = torch.log(torch.clamp(torch.sigmoid(neg_dot), min=eps, max=1-eps))
         l_neg_samples_ind = torch.log(neg_dot_sig)
         l_neg_samples_total = torch.sum(l_neg_samples_ind, dim=-1)
 
 
         dot = torch.sum(torch.mul(h_graph, pos_samples), dim=-1)
-        #l_pos_samples = torch.log(torch.clamp(torch.sigmoid(dot), min=eps, max=1-eps))
         l_pos_samples = torch.log(dot)
 
         total_loss = l_pos_samples + l_neg_samples_total
@@ -239,13 +237,18 @@ class RegionEncoder(nn.Module):
 
     def __gen_neg_samples_disc(self, h_graph, h_image):
         idx = np.arange(self.n_nodes)
-        #eta = torch.zeros(self.n_nodes + self.n_neg_samples)
-        #eta[:self.n_nodes] = 1
 
         neg_idx_graph = np.random.choice(idx, size=self.neg_samples_disc, replace=True)
         neg_idx_image = np.random.choice(idx, size=self.neg_samples_disc, replace=True)
 
-        print("Incorrectly labelled discriminator neg samples: {}".format(np.sum(neg_idx_graph == neg_idx_image)))
+        graph_equal_img = np.where(neg_idx_graph == neg_idx_image)[0]
+
+        # If (due to random chance) negative sampled graph and image representations are from same region,
+        # resample until they are true negative samples
+        for i in graph_equal_img:
+            while neg_idx_graph[i] == neg_idx_image[i]:
+                new_idx = np.random.randint(0, self.n_nodes)
+                neg_idx_graph[i] = new_idx
 
         h_graph_neg = h_graph[neg_idx_graph,:]
         h_img_neg = h_image[neg_idx_image, :]
