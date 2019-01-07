@@ -22,7 +22,7 @@ class RegionEncoder(nn.Module):
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
                  lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01, img_dims=(640,640),
-                 n_neg_samples=None):
+                 neg_samples_disc=None, neg_samples_gcn = 10):
         super(RegionEncoder, self).__init__()
         # Model Layers
         self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph, n_classes=4)
@@ -39,11 +39,16 @@ class RegionEncoder(nn.Module):
         self.cross_entropy = nn.CrossEntropyLoss()
         self.bce_logits = nn.BCEWithLogitsLoss()
 
-        if n_neg_samples is None:
-            self.n_neg_samples = n_nodes
+        # Sampling parameters
+        if neg_samples_disc is None:
+            self.neg_samples_disc = n_nodes
         else:
-            self.n_neg_samples = n_neg_samples
+            self.neg_samples_disc = neg_samples_disc
+        self.neg_samples_gcn = neg_samples_gcn
         self.n_nodes = n_nodes
+
+        # Final model hidden state
+        self.embedding = torch.Tensor
 
     def forward(self, X, A, D, img_tensor):
 
@@ -107,10 +112,6 @@ class RegionEncoder(nn.Module):
         :param gamma:
         :return:
         """
-        # TODO: rewrite for numerical stability with
-
-        eps = 10e-5
-
         n = h_graph.shape[0]
         h_dim = h_graph.shape[1]
         n_neg_samples = neg_samples.shape[1]
@@ -118,16 +119,22 @@ class RegionEncoder(nn.Module):
         h_graph_expanded = h_graph.unsqueeze(1)
         h_graph_expanded = h_graph_expanded.expand(n, n_neg_samples, h_dim)
 
-        neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=(1,2))
-        l_neg_samples = torch.log(torch.clamp(torch.sigmoid(neg_dot), min=eps, max=1-eps))
+        neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=-1)
+        neg_dot_sig = torch.sigmoid(neg_dot)
+        #l_neg_samples = torch.log(torch.clamp(torch.sigmoid(neg_dot), min=eps, max=1-eps))
+        l_neg_samples_ind = torch.log(neg_dot_sig)
+        l_neg_samples_total = torch.sum(l_neg_samples_ind, dim=-1)
 
 
         dot = torch.sum(torch.mul(h_graph, pos_samples), dim=-1)
-        l_pos_samples = torch.log(torch.clamp(torch.sigmoid(dot), min=eps, max=1-eps))
+        #l_pos_samples = torch.log(torch.clamp(torch.sigmoid(dot), min=eps, max=1-eps))
+        l_pos_samples = torch.log(dot)
 
-        l_graph = torch.mean(l_pos_samples + l_neg_samples)
+        total_loss = l_pos_samples + l_neg_samples_total
+        l_graph = torch.mean(total_loss)
 
-        return l_graph
+        # to minimize negative log likelihood: multiply by -1
+        return -l_graph
 
     def loss_disc(self, eta, eta_logits):
         loss_disc = self.bce_logits(eta_logits, eta)
@@ -235,8 +242,8 @@ class RegionEncoder(nn.Module):
         #eta = torch.zeros(self.n_nodes + self.n_neg_samples)
         #eta[:self.n_nodes] = 1
 
-        neg_idx_graph = np.random.choice(idx, size=self.n_neg_samples, replace=True)
-        neg_idx_image = np.random.choice(idx, size=self.n_neg_samples, replace=True)
+        neg_idx_graph = np.random.choice(idx, size=self.neg_samples_disc, replace=True)
+        neg_idx_image = np.random.choice(idx, size=self.neg_samples_disc, replace=True)
 
         print("Incorrectly labelled discriminator neg samples: {}".format(np.sum(neg_idx_graph == neg_idx_image)))
 
@@ -246,6 +253,30 @@ class RegionEncoder(nn.Module):
 
         return h_graph_neg, h_img_neg
 
+    def write_embeddings(self, fname):
+
+        arr = self.embedding.data.numpy()
+        h_dim = arr.shape[1]
+
+        with open(fname, 'w') as f:
+            f.write("{} {} \n".format(self.n_nodes, h_dim))
+
+            #for cntr, embedding_vector in enumerate(arr):
+            for region_idx in range(self.n_nodes):
+                embedding_vector = arr[region_idx, :]
+                f.write("{} ".format(region_idx))
+
+                cntr = 0
+                for element in embedding_vector:
+                    if cntr == (h_dim-1):
+                        f.write("{}".format(element))
+                    else:
+                        f.write("{} ".format(element))
+
+                    cntr += 1
+
+
+                f.write("\n")
 
 
     def run_train_job(self,region_grid, epochs, lr, n_neg_samples=15):
@@ -283,7 +314,7 @@ class RegionEncoder(nn.Module):
             # generate positive samples for gcn
             gcn_pos_samples = self.__gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
-            gcn_neg_samples = self.__gen_neg_samples_gcn(self.n_neg_samples, A, h_graph, region_mtx_map, batch_size)
+            gcn_neg_samples = self.__gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph, region_mtx_map, batch_size)
 
             # get labels for discriminator
             eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
@@ -301,6 +332,9 @@ class RegionEncoder(nn.Module):
             # loss.item()
             print("Epoch: {}, Train Loss {:.4f}".format(i+1, loss.item()))
 
+        self.embedding = h_global
+
+
 
 
 
@@ -309,7 +343,8 @@ if __name__ == "__main__":
     region_grid = RegionGrid(config=c, load_imgs=True)
     n_nodes = len(region_grid.regions)
 
-    # TODO: Normalize weight matrix
-    mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    mod.run_train_job(region_grid, epochs=100, lr=.01)
+    mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=0.1, neg_samples_gcn=10)
+    mod.run_train_job(region_grid, epochs=50, lr=.01)
+    mod.write_embeddings(c['embedding_file'])
+
 

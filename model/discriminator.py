@@ -29,6 +29,7 @@ class DiscriminatorMLP(nn.Module):
 
 
 
+
 class DiscriminatorNCF(nn.Module):
     """
     Discriminator for RegionEncoder model

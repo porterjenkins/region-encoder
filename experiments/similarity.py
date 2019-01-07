@@ -96,6 +96,18 @@ if __name__ == "__main__":
     results.append(['deepwalk', mse, mse_std, mae, mae_std])
 
 
+    # Run with RegionEncoder as similarity measure
+    re_embed = region_grid.load_embedding(c['embedding_file'])
+    W_re = np.matmul(re_embed, np.transpose(re_embed))
+    W_re = W_re[y_is_valid, :]
+    W_re = W_re[:, y_is_valid]
+
+    mod_re = SimilarityModel(y_house, W_re)
+
+    mse, mse_std, mae, mae_std  = mod_re.cv_ols()
+    results.append(['proposed', mse, mse_std, mae, mae_std])
+
+
     results = pd.DataFrame(results, columns=['model', 'cv mse', 'std mse', 'cv mae', 'std mae'])
     print(results)
 
