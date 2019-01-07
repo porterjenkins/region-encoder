@@ -74,6 +74,7 @@ class RegionGrid:
 
         if config['flow_mtx_file'] is not None and os.path.isfile(config['flow_mtx_file']):
             self.weighted_mtx = self.load_weighted_mtx(config['flow_mtx_file'])
+            self.weighted_mtx = RegionGrid.normalize_mtx(self.weighted_mtx)
             if sample_prob is not None:
                 # Update weighted matrix to reflect sampled regions
                 self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
@@ -422,7 +423,6 @@ class RegionGrid:
     def load_weighted_mtx(self, fname):
         with open(fname, 'rb') as f:
             W = pickle.load(f)
-
         return W
 
     def get_poi_pickle(self, fname):
@@ -494,8 +494,10 @@ class RegionGrid:
     @staticmethod
     def normalize_mtx(mtx):
         row_sums = numpy.sum(mtx, axis=1).reshape(-1, 1)
-        row_sums = numpy.where(row_sums == 0, 1, 0)
-        return mtx / row_sums
+        mtx_norm = mtx / row_sums
+        idx_nan = numpy.isnan(mtx_norm)
+        mtx_norm[idx_nan] = 0.0
+        return mtx_norm
 
     def write_edge_list(self, fname):
         """
