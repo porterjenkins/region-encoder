@@ -21,7 +21,8 @@ class RegionEncoder(nn.Module):
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
-                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01, img_dims=(640,640)):
+                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01, img_dims=(640,640),
+                 neg_samples_disc=None, neg_samples_gcn = 10):
         super(RegionEncoder, self).__init__()
         # Model Layers
         self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph, n_classes=4)
@@ -38,8 +39,18 @@ class RegionEncoder(nn.Module):
         self.cross_entropy = nn.CrossEntropyLoss()
         self.bce_logits = nn.BCEWithLogitsLoss()
 
-    def forward(self, X, A, D, img_tensor):
+        # Sampling parameters
+        if neg_samples_disc is None:
+            self.neg_samples_disc = n_nodes
+        else:
+            self.neg_samples_disc = neg_samples_disc
+        self.neg_samples_gcn = neg_samples_gcn
+        self.n_nodes = n_nodes
 
+        # Final model hidden state
+        self.embedding = torch.Tensor
+
+    def forward(self, X, A, D, img_tensor):
 
         # Forward step for graph data
         h_graph = self.graph_conv_net.forward(X, A, D)
@@ -48,10 +59,17 @@ class RegionEncoder(nn.Module):
         # Forward step for image data
         image_hat, h_image = self.auto_encoder.forward(img_tensor)
 
-        # forward step for discriminator (all data)
-        logits, h_global = self.discriminator.forward(x=h_graph, z=h_image, activation=False)
+        # generate negative samples for discriminator
+        h_graph_neg, h_img_neg = self.__gen_neg_samples_disc(h_graph, h_image)
 
-        return logits, h_global, image_hat, graph_proximity, h_graph, h_image
+        # concat positive and negatives samples for discriminator
+        h_graph_cat = torch.cat([h_graph, h_graph_neg], dim=0)
+        h_img_cat = torch.cat([h_image, h_img_neg], dim=0)
+
+        # forward step for discriminator (all data)
+        logits, h_global = self.discriminator.forward(x=h_graph_cat, z=h_img_cat, activation=False)
+
+        return logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg, h_img_neg
 
 
     def _get_weighted_proximity(self, h_graph):
@@ -94,10 +112,6 @@ class RegionEncoder(nn.Module):
         :param gamma:
         :return:
         """
-        # TODO: rewrite for numerical stability with
-
-        eps = 10e-5
-
         n = h_graph.shape[0]
         h_dim = h_graph.shape[1]
         n_neg_samples = neg_samples.shape[1]
@@ -105,16 +119,20 @@ class RegionEncoder(nn.Module):
         h_graph_expanded = h_graph.unsqueeze(1)
         h_graph_expanded = h_graph_expanded.expand(n, n_neg_samples, h_dim)
 
-        neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=(1,2))
-        l_neg_samples = torch.log(torch.clamp(torch.sigmoid(neg_dot), min=eps, max=1-eps))
+        neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=-1)
+        neg_dot_sig = torch.sigmoid(neg_dot)
+        l_neg_samples_ind = torch.log(neg_dot_sig)
+        l_neg_samples_total = torch.sum(l_neg_samples_ind, dim=-1)
 
 
         dot = torch.sum(torch.mul(h_graph, pos_samples), dim=-1)
-        l_pos_samples = torch.log(torch.clamp(torch.sigmoid(dot), min=eps, max=1-eps))
+        l_pos_samples = torch.log(dot)
 
-        l_graph = torch.mean(l_pos_samples + l_neg_samples)
+        total_loss = l_pos_samples + l_neg_samples_total
+        l_graph = torch.mean(total_loss)
 
-        return l_graph
+        # to minimize negative log likelihood: multiply by -1
+        return -l_graph
 
     def loss_disc(self, eta, eta_logits):
         loss_disc = self.bce_logits(eta_logits, eta)
@@ -173,34 +191,6 @@ class RegionEncoder(nn.Module):
 
         return D
 
-    def __get_eta(self, batch_size):
-        eta = torch.zeros((batch_size, 2), dtype=torch.float)
-        for i in range(batch_size):
-            alpha = np.random.rand()
-
-            if alpha < .25:
-                eta[i, 1] = 1
-            else:
-                eta[i, 0] = 1
-
-        return eta
-
-    def __get_gamma(self, batch_size):
-        gamma = torch.zeros((batch_size, 2), dtype=torch.float)
-
-        for i in range(batch_size):
-            beta = np.random.rand()
-
-            if beta < .33:
-                gamma[i, 1] = 1
-            else:
-                gamma[i, 0] = 1
-
-        return gamma
-
-    def __gen_neg_samples_discriminator(self):
-        pass
-
     def __gen_pos_samples_gcn(self, regions, idx_map, h_graph, batch_size):
         pos_sample_map = dict()
         n_h_dims = h_graph.shape[1]
@@ -234,9 +224,82 @@ class RegionEncoder(nn.Module):
 
         return neg_samples
 
+    def __gen_eta(self, pos_tens, neg_tens):
+
+        eta = torch.zeros(pos_tens.shape[0] + neg_tens.shape[0], 2)
+        # Positive labels
+        eta[:pos_tens.shape[0], 1] = 1
+        # negative labels
+        eta[-neg_tens.shape[0]:, 0] = 1
 
 
-    def run_train_job(self,region_grid, epochs, lr, n_neg_samples=15):
+        return eta
+
+    def __gen_neg_samples_disc(self, h_graph, h_image):
+        idx = np.arange(self.n_nodes)
+
+        neg_idx_graph = np.random.choice(idx, size=self.neg_samples_disc, replace=True)
+        neg_idx_image = np.random.choice(idx, size=self.neg_samples_disc, replace=True)
+
+        graph_equal_img = np.where(neg_idx_graph == neg_idx_image)[0]
+
+        # If (due to random chance) negative sampled graph and image representations are from same region,
+        # resample until they are true negative samples
+        for i in graph_equal_img:
+            while neg_idx_graph[i] == neg_idx_image[i]:
+                new_idx = np.random.randint(0, self.n_nodes)
+                neg_idx_graph[i] = new_idx
+
+        h_graph_neg = h_graph[neg_idx_graph,:]
+        h_img_neg = h_image[neg_idx_image, :]
+
+
+        return h_graph_neg, h_img_neg
+
+    def write_embeddings(self, fname):
+
+        arr = self.embedding.data.numpy()
+        h_dim = arr.shape[1]
+
+        with open(fname, 'w') as f:
+            f.write("{} {} \n".format(self.n_nodes, h_dim))
+
+            #for cntr, embedding_vector in enumerate(arr):
+            for region_idx in range(self.n_nodes):
+                embedding_vector = arr[region_idx, :]
+                f.write("{} ".format(region_idx))
+
+                cntr = 0
+                for element in embedding_vector:
+                    if cntr == (h_dim-1):
+                        f.write("{}".format(element))
+                    else:
+                        f.write("{} ".format(element))
+
+                    cntr += 1
+
+
+                f.write("\n")
+
+    def __earling_stop(self, seq, tol, order):
+        """
+        Determine early stopping of training job
+        :param seq:
+        :param tol:
+        :param order:
+        :return:
+        """
+        diffs = np.abs(np.diff(seq[-order:]))
+        diffs_bool = diffs < tol
+        diff_cnt_true = np.sum(diffs_bool)
+
+        if len(seq) > order and diff_cnt_true == order:
+            return True
+        else:
+            return False
+
+
+    def run_train_job(self,region_grid, epochs, lr, tol=.001, tol_order=5):
 
         optimizer = self.get_optimizer(lr=lr)
 
@@ -259,50 +322,60 @@ class RegionEncoder(nn.Module):
         img_tensor = torch.Tensor(region_grid.img_tensor)
 
         batch_size = A.shape[0]
-
-
-        # Ground truth for discriminator
-        eta = self.__get_eta(batch_size)
-        # ground truth for spatial reconstruction
-        gamma = self.__get_gamma(batch_size)
-
         print("Beginning training job: epochs: {}, batch size: {}".format(epochs, batch_size))
+
+        loss_seq = list()
         for i in range(epochs):
 
             optimizer.zero_grad()
             # forward + backward + optimize
-            logits, h_global, image_hat, graph_proximity, h_graph, h_image = mod.forward(X=X, A=A_hat, D=D_hat,
-                                                                                         img_tensor=img_tensor)
+            logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg,\
+            h_image_neg = mod.forward(X=X, A=A_hat, D=D_hat, img_tensor=img_tensor)
+
             # generate positive samples for gcn
             gcn_pos_samples = self.__gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
-            gcn_neg_samples = self.__gen_neg_samples_gcn(n_neg_samples, A, h_graph, region_mtx_map, batch_size)
+            gcn_neg_samples = self.__gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph, region_mtx_map, batch_size)
+            # get labels for discriminator
+            eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
+            # Add noise to images
+            img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25)
 
             # Get different objectives
             L_graph = self.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
             L_edge_weights = self.loss_weighted_edges(graph_proximity, W)
             L_disc = self.loss_disc(eta, logits)
-            L_ae = self.loss_ae(img_tensor, image_hat)
+            L_ae = self.loss_ae(img_noisey, image_hat)
 
             loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae)
             loss.backward()
             optimizer.step()
-            # print statistics
-            # loss.item()
-            print("Epoch: {}, Train Loss {:.4f}".format(i+1, loss.item()))
+            loss_seq.append(loss.item())
+
+            if np.isnan(loss_seq[-1]):
+                print("Exploding/Vanishing gradient: loss = nan")
+                break
+            elif self.__earling_stop(loss_seq, tol, tol_order):
+                print("Terminating early: Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
+                      " autoencoder: {:.4f})".format(i+1, loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
+                break
+            else:
+                print("Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
+                      " autoencoder: {:.4f})".format(i + 1, loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
+
+        self.embedding = h_global
+
 
 
 
 
 if __name__ == "__main__":
     c = get_config()
-    file = open(c["poi_file"], 'rb')
-    img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size=c['grid_size'], poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=None,
-                             lat_min=c['lat_min'], lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
-
+    region_grid = RegionGrid(config=c, load_imgs=True)
     n_nodes = len(region_grid.regions)
-    mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=.1)
-    mod.run_train_job(region_grid, epochs=100, lr=.001)
+
+    mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=0.1, neg_samples_gcn=10)
+    mod.run_train_job(region_grid, epochs=100, lr=.005, tol_order=3)
+    mod.write_embeddings(c['embedding_file'])
+
 

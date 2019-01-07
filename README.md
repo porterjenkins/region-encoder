@@ -16,6 +16,7 @@ The project uses a config file (called config.json) to do basic setup (e.g., poi
 	"poi_dist_file": "POI_dist_tract.csv",
 	"edge_list_file": "edge_list.txt",
 	"deepwalk_file": "deepwalk_embedding.txt",
+	"embedding_file": "embedding.txt",
 	"raw_flow_file": "taxi-trips.csv",
 	"flow_mtx_file": "flow_mtx.p",
 	"housing_data_file": "zillow_house_price.csv",

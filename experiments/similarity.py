@@ -55,11 +55,7 @@ class SimilarityModel(object):
 if __name__ == "__main__":
 
     c = get_config()
-    grid_size = 50
-    file = open(c["poi_file"], 'rb')
-    img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size, poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=False)
+    region_grid = RegionGrid(config=c, load_imgs=False)
 
     y_house = region_grid.get_target_var("house_price")
     y_is_valid = np.where(~np.isnan(y_house))[0]
@@ -98,6 +94,18 @@ if __name__ == "__main__":
 
     mse, mse_std, mae, mae_std  = mod_deepwalk.cv_ols()
     results.append(['deepwalk', mse, mse_std, mae, mae_std])
+
+
+    # Run with RegionEncoder as similarity measure
+    re_embed = region_grid.load_embedding(c['embedding_file'])
+    W_re = np.matmul(re_embed, np.transpose(re_embed))
+    W_re = W_re[y_is_valid, :]
+    W_re = W_re[:, y_is_valid]
+
+    mod_re = SimilarityModel(y_house, W_re)
+
+    mse, mse_std, mae, mae_std  = mod_re.cv_ols()
+    results.append(['proposed', mse, mse_std, mae, mae_std])
 
 
     results = pd.DataFrame(results, columns=['model', 'cv mse', 'std mse', 'cv mae', 'std mae'])

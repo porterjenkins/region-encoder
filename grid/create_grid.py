@@ -32,24 +32,24 @@ class RegionGrid:
         As the vertical starting point for longitude, the Prime Meridian is numbered 0 degrees longitude
     """
 
-    def __init__(self, grid_size, poi_file, img_dir=None, w_mtx_file=None, housing_data=None, img_dims=(640, 640),
-                 load_imgs=False, sample_prob=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
-        poi = pickle.load(poi_file)
+    def __init__(self, config, img_dims=(640, 640), load_imgs=False, sample_prob=None):
+
+        poi = self.get_poi_pickle(config['poi_file'])
         poi_rect, self.categories = RegionGrid.handle_poi(poi)
 
-        if lon_min is None or lon_max is None or lat_min is None or lat_max is None:
+        if config['lon_min'] is None or config['lon_max'] is None or config['lat_min'] is None or config['lat_max'] is None:
             self.lon_min = poi_rect["lon_min"]
             self.lon_max = poi_rect["lon_max"]
             self.lat_min = poi_rect["lat_min"]
             self.lat_max = poi_rect["lat_max"]
 
         else:
-            self.lon_min = lon_min
-            self.lon_max = lon_max
-            self.lat_min = lat_min
-            self.lat_max = lat_max
+            self.lon_min = config['lon_min']
+            self.lon_max = config['lon_max']
+            self.lat_min = config['lat_min']
+            self.lat_max = config['lat_max']
 
-        self.grid_size = grid_size
+        self.grid_size = config['grid_size']
         # define y space with longitude
         self.y_space = numpy.linspace(self.lon_min, self.lon_max, self.grid_size + 1)
         # define x space latitude
@@ -57,10 +57,10 @@ class RegionGrid:
         # create regions, adjacency matrix, degree matrix, and image tensor
         self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, self.matrix_idx_map, grid_partition_map = \
             RegionGrid.create_regions(
-                grid_size,
+                config['grid_size'],
                 self.x_space,
                 self.y_space,
-                img_dir=img_dir,
+                img_dir=config['path_to_image_dir'],
                 img_dims=img_dims,
                 load_imgs=load_imgs,
                 sample_prob=sample_prob,
@@ -69,23 +69,22 @@ class RegionGrid:
         self.n_regions = len(self.regions)
         # Reverse mapping: index to coordinate name
         self.idx_coor_map = dict(zip(self.matrix_idx_map.values(), self.matrix_idx_map.keys()))
-        self.load_poi(poi)
         self.feature_matrix = self.create_feature_matrix()
         # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
 
-        if w_mtx_file is not None and os.path.isfile(w_mtx_file):
-            self.weighted_mtx = self.load_weighted_mtx(w_mtx_file)
+        if config['flow_mtx_file'] is not None and os.path.isfile(config['flow_mtx_file']):
+            self.weighted_mtx = self.load_weighted_mtx(config['flow_mtx_file'])
+            self.weighted_mtx = RegionGrid.normalize_mtx(self.weighted_mtx)
             if sample_prob is not None:
                 # Update weighted matrix to reflect sampled regions
                 self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
                                                                           grid_partition_map)
 
-        if housing_data is not None and os.path.isfile(housing_data):
-            self.load_housing_data(housing_data)
+        if config['housing_data_file'] is not None and os.path.isfile(config['housing_data_file']):
+            self.load_housing_data(config['housing_data_file'])
+
 
     def load_poi(self, poi):
-        x_space = self.x_space
-        y_space = self.y_space
         regions = self.regions
         for id, poi_obj in poi.items():
             lat = poi_obj.location.lat
@@ -424,8 +423,12 @@ class RegionGrid:
     def load_weighted_mtx(self, fname):
         with open(fname, 'rb') as f:
             W = pickle.load(f)
-
         return W
+
+    def get_poi_pickle(self, fname):
+        with open(fname, 'rb') as poi_f:
+            poi = pickle.load(poi_f)
+        return poi
 
     def img_tens_get_size(self):
         b = self.img_tensor.nbytes
@@ -491,8 +494,10 @@ class RegionGrid:
     @staticmethod
     def normalize_mtx(mtx):
         row_sums = numpy.sum(mtx, axis=1).reshape(-1, 1)
-        row_sums = numpy.where(row_sums == 0, 1, 0)
-        return mtx / row_sums
+        mtx_norm = mtx / row_sums
+        idx_nan = numpy.isnan(mtx_norm)
+        mtx_norm[idx_nan] = 0.0
+        return mtx_norm
 
     def write_edge_list(self, fname):
         """
@@ -659,21 +664,9 @@ def get_images_for_grid(region_grid):
 
 if __name__ == '__main__':
     c = get_config()
-    file = open(c["poi_file"], 'rb')
-    img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size=c['grid_size'], poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'],
-                             housing_data=c["housing_data_file"], load_imgs=True, sample_prob=None,
-                             lat_min=c['lat_min'], lat_max=c['lat_max'], lon_min=c['lon_min'], lon_max=c['lon_max'])
+    region_grid = RegionGrid(config=c, load_imgs=True)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
-
-
-    #r = region_grid.regions['0,49']
-    #xdist, ydist = r.compute_distances()
-    #x_mid, y_mid = r.compute_midpoint()
-
-    #region = region_grid.regions['0,49']
-    #print(region.points)
     W = region_grid.weighted_mtx
     I = region_grid.img_tensor
 
@@ -681,8 +674,7 @@ if __name__ == '__main__':
     print(A.shape)
     print(D.shape)
     print(I.shape)
-    #
     y_house = region_grid.get_target_var("house_price")
     print(y_house.shape)
 
-    #print(I)
+    print(I)

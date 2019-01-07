@@ -3,6 +3,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
+from grid.create_grid import RegionGrid
 
 
 class DWparams(object):
@@ -24,7 +25,8 @@ class DWparams(object):
 
 # Configure project
 config = get_config()
-
+region_grid = RegionGrid(config=config, load_imgs=False)
+region_grid.write_edge_list(config['edge_list_file'])
 
 args = DWparams(input=config['edge_list_file'],
               format='adjlist',

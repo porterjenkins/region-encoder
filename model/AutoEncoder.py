@@ -85,19 +85,15 @@ class AutoEncoder(nn.Module):
         optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
 
         return criterion, optimizer
+    @staticmethod
+    def add_noise(image_tensor, noise_factor=.5):
 
-    def add_noise(self, image_tensor, noise_factor=.5):
-        noised_image = torch.zeros(image_tensor.shape)
         batch_size = image_tensor.shape[0]
         channels = image_tensor.shape[1]
         h = image_tensor.shape[2]
         w = image_tensor.shape[3]
-        mvn = MultivariateNormal(torch.zeros((h,w)), torch.eye(w))
-        for i in range(batch_size):
-            for k in range(channels):
-                #noise = torch.clamp(mvn.sample(), min=-1, max=1)
-                noise = mvn.sample()
-                noised_image[i, k, :, :] = image_tensor[i, k, :, :] + noise_factor*noise
+        noise = torch.randn((batch_size, channels, h, w))
+        noised_image = image_tensor + noise_factor*noise
 
         return noised_image
 
@@ -112,7 +108,7 @@ class AutoEncoder(nn.Module):
                 end_idx = start_idx + batch_size
 
 
-                noisey_inputs = self.add_noise(img_tensor[start_idx:end_idx, :, :, :], noise_factor=.25)
+                noisey_inputs = AutoEncoder.add_noise(img_tensor[start_idx:end_idx, :, :, :], noise_factor=.25)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
