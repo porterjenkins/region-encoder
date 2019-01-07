@@ -289,14 +289,17 @@ class RegionEncoder(nn.Module):
         :param order:
         :return:
         """
-        avg_change = np.mean(np.diff(seq[-order:]))
-        if avg_change <= tol:
+        diffs = np.abs(np.diff(seq[-order:]))
+        diffs_bool = diffs < tol
+        diff_cnt_true = np.sum(diffs_bool)
+
+        if len(seq) > order and diff_cnt_true == order:
             return True
         else:
             return False
 
 
-    def run_train_job(self,region_grid, epochs, lr, tol=.0001, tol_order=5):
+    def run_train_job(self,region_grid, epochs, lr, tol=.001, tol_order=5):
 
         optimizer = self.get_optimizer(lr=lr)
 
@@ -336,13 +339,13 @@ class RegionEncoder(nn.Module):
             # get labels for discriminator
             eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
             # Add noise to images
-            #img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25)
+            img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25)
 
             # Get different objectives
             L_graph = self.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
             L_edge_weights = self.loss_weighted_edges(graph_proximity, W)
             L_disc = self.loss_disc(eta, logits)
-            L_ae = self.loss_ae(img_tensor, image_hat)
+            L_ae = self.loss_ae(img_noisey, image_hat)
 
             loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae)
             loss.backward()
@@ -353,9 +356,12 @@ class RegionEncoder(nn.Module):
                 print("Exploding/Vanishing gradient: loss = nan")
                 break
             elif self.__earling_stop(loss_seq, tol, tol_order):
-                pass
+                print("Terminating early: Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
+                      " autoencoder: {:.4f})".format(i+1, loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
+                break
             else:
-                print("Epoch: {}, Train Loss {:.4f}".format(i+1, loss_seq[-1]))
+                print("Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
+                      " autoencoder: {:.4f})".format(i + 1, loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
 
         self.embedding = h_global
 
@@ -369,7 +375,7 @@ if __name__ == "__main__":
     n_nodes = len(region_grid.regions)
 
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.1, lambda_edge=.1, lambda_g=0.1, neg_samples_gcn=10)
-    mod.run_train_job(region_grid, epochs=100, lr=.005)
+    mod.run_train_job(region_grid, epochs=100, lr=.005, tol_order=3)
     mod.write_embeddings(c['embedding_file'])
 
 

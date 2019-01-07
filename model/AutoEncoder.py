@@ -87,17 +87,13 @@ class AutoEncoder(nn.Module):
         return criterion, optimizer
     @staticmethod
     def add_noise(image_tensor, noise_factor=.5):
-        noised_image = torch.zeros(image_tensor.shape)
+
         batch_size = image_tensor.shape[0]
         channels = image_tensor.shape[1]
         h = image_tensor.shape[2]
         w = image_tensor.shape[3]
-        mvn = MultivariateNormal(torch.zeros((h,w)), torch.eye(w))
-        for i in range(batch_size):
-            for k in range(channels):
-                #noise = torch.clamp(mvn.sample(), min=-1, max=1)
-                noise = mvn.sample()
-                noised_image[i, k, :, :] = image_tensor[i, k, :, :] + noise_factor*noise
+        noise = torch.randn((batch_size, channels, h, w))
+        noised_image = image_tensor + noise_factor*noise
 
         return noised_image
 
