@@ -165,7 +165,7 @@ class RegionGrid:
             region = self.get_region_for_coor(lat, lon)
 
             if region is not None:
-                region.add_home(price / sqft)
+                region.add_home(price / float(sqft))
                 reg_coor[index] = region.coordinate_name
             else:
                 reg_coor[index] = numpy.nan
