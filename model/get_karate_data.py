@@ -6,6 +6,7 @@ Import adjacency and feature matrices from Zachary's Karate Club data set.
 To be used for testing/building Graph ConvNet
 """
 
+
 def get_adj_mtx():
     G = nx.karate_club_graph()
     print("Building Adjancency Matrix from {}".format(G))
@@ -32,8 +33,8 @@ def get_degree_mtx(A):
     D = np.linalg.inv(D)
     D = np.power(D, .5)
 
-
     return D
+
 
 def get_a_hat(A):
     n = A.shape[0]
@@ -41,14 +42,11 @@ def get_a_hat(A):
     return A + np.eye(n)
 
 
-
-
-
 def get_features():
     G = nx.karate_club_graph()
     pos = nx.spring_layout(G)
 
-    X = np.zeros((len(G),2), dtype=np.float32)
+    X = np.zeros((len(G), 2), dtype=np.float32)
 
     for node, point in pos.items():
         X[node, :] = point
@@ -62,7 +60,6 @@ def get_labels(n_samples, class_probs):
     y = np.zeros(shape=(n_samples))
 
     for i in range(n_samples):
-
         label = np.random.choice(classes, p=class_probs)
         y[i] = label
 
@@ -82,10 +79,8 @@ def get_weighted_graph(n_nodes):
 
 
 if __name__ == "__main__":
-
     A = get_adj_mtx()
     print(A)
-
 
     X = get_features()
     print(X)
