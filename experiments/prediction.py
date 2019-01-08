@@ -41,7 +41,7 @@ param = {
     'seed': 123
 }
 
-n_epochs = 50
+n_epochs = 100
 
 
 features = zillow[['numBedrooms', 'numBathrooms', 'sqft', 'region_coor', 'priceSqft']]
