@@ -1,136 +1,135 @@
-import torch
-import torchvision
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.distributions.multivariate_normal import MultivariateNormal
 import os
 import sys
+from collections import OrderedDict
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
+
+
+class ViewEncode(nn.Module):
+    def forward(self, input):
+        return input.view(-1, 24 * 158 * 158)
+
+
+class ViewDecode(nn.Module):
+    def forward(self, input):
+        return input.view(-1, 24, 158, 158)
+
+
+class Tan(nn.Module):
+    def forward(self, input):
+        return torch.tanh(input)
+
 
 class AutoEncoder(nn.Module):
     """
     Denoising Autoencoder implementation
     """
-    def __init__(self, img_dims, h_dim_size=32):
+
+    def __init__(self, img_dims, h_dim_size=32, cuda_override=False):
         super(AutoEncoder, self).__init__()
+        self.cuda = torch.cuda.is_available() and not cuda_override
+        print(f"Cuda Set to {self.cuda}")
+
         self.img_dims = img_dims
-        ### Encoder
+        # Encoder
+        self.encoder = nn.Sequential(OrderedDict([
+            ('conv', nn.Conv2d(3, 6, 3)),
+            ('relu1', nn.ReLU()),
+            ('pool', nn.MaxPool2d(2, 2)),
+            ('conv2', nn.Conv2d(6, 24, 3)),
+            ('relu2', nn.ReLU()),
+            ('pool2', nn.MaxPool2d(2, 2)),
+            ('view', ViewEncode()),
+            ('l1', nn.Linear(24 * 158 * 158, 120)),
+            ('relu3', nn.ReLU()),
+            ('l2', nn.Linear(120, 84)),
+            ('relu4', nn.ReLU()),
+            ('l3', nn.Linear(84, h_dim_size))]
+        ))
 
-        # convoluional layer
-        self.conv1 = nn.Conv2d(3, 6, 3)
-        # Max pool layer
-        self.pool = nn.MaxPool2d(2, 2)
-        # Convolutional Layer
-        self.conv2 = nn.Conv2d(6, 24, 3)
-        # Three fully connected layers
-        self.fc1 = nn.Linear(24 * 158 * 158, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, h_dim_size)
-
-        ### Decoder
-        self.fc4 = nn.Linear(h_dim_size, 84)
-        self.fc5 = nn.Linear(84, 120)
-        self.fc6 = nn.Linear(120, 24 * 158 * 158)
-        self.conv3 = nn.Conv2d(24, 6, 3)
-        self.up_sample3 = nn.UpsamplingBilinear2d((14, 14))
-        self.conv4 = nn.Conv2d(6, 3, 3)
-        self.up_sample4 = nn.UpsamplingBilinear2d(self.img_dims)
-        self.conv5 = nn.Conv2d(3, 3, kernel_size=1)
-
-
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Linear(h_dim_size, 84),
+            nn.ReLU(),
+            nn.Linear(84, 120),
+            nn.ReLU(),
+            nn.Linear(120, 24 * 158 * 158),
+            nn.ReLU(),
+            ViewDecode(),
+            nn.Conv2d(24, 6, 3),
+            nn.ReLU(),
+            nn.UpsamplingBilinear2d((14, 14)),
+            nn.Conv2d(6, 3, 3),
+            nn.ReLU(),
+            nn.UpsamplingBilinear2d(self.img_dims),
+            nn.Conv2d(3, 3, kernel_size=1),
+            Tan()
+        )
+        if self.cuda:
+            self.encoder = self.encoder.cuda()
+            self.decoder = self.decoder.cuda()
 
     def forward(self, x):
-        # Encode
-        #print(x.shape)
-        x = self.pool(F.relu(self.conv1(x)))
-        #print(x.shape)
-        x = self.pool(F.relu(self.conv2(x)))
-        #print(x.shape)
-        x = x.view(-1, 24 * 158 * 158)
-        #print(x.shape)
-        x = F.relu(self.fc1(x))
-        #print(x.shape)
-        x = F.relu(self.fc2(x))
-        #print(x.shape)
 
-        # hidden state
-        h = self.fc3(x)
-        #print(self.h.shape)
+        x = self.encoder(x)
+        x = self.decoder(x)
 
-        x = F.relu(self.fc4(h))
-        #print(x.shape)
-        x = F.relu(self.fc5(x))
-        #print(x.shape)
-        x = F.relu(self.fc6(x))
-        #print(x.shape)
-
-        x = x.view(-1, 24, 158, 158)
-        #print(x.shape)
-
-        x = self.up_sample3(F.relu(self.conv3(x)))
-        #print(x.shape)
-        x = self.up_sample4(F.relu(self.conv4(x)))
-        #print(x.shape)
-        x = torch.tanh(self.conv5(x))
-
-        return x, h
-
+        return x
 
     def get_optimizer(self):
         criterion = nn.MSELoss()
         # TODO: Try BCE loss?
-        #criterion = torch.nn.BCELoss()
+        # criterion = torch.nn.BCELoss()
         optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
 
         return criterion, optimizer
+
     @staticmethod
-    def add_noise(image_tensor, noise_factor=.5):
+    def add_noise(image_tensor, noise_factor=.5, cuda=False):
 
         batch_size = image_tensor.shape[0]
         channels = image_tensor.shape[1]
         h = image_tensor.shape[2]
         w = image_tensor.shape[3]
         noise = torch.randn((batch_size, channels, h, w))
-        noised_image = image_tensor + noise_factor*noise
+        if cuda:
+            noise = noise.cuda()
+        noised_image = image_tensor + noise_factor * noise
 
         return noised_image
 
     def run_train_job(self, n_epoch, img_tensor):
+        if self.cuda:
+            img_tensor = img_tensor.cuda()
         loss_function, optimizer = self.get_optimizer()
         n_samples = img_tensor.shape[0]
         batch_size = 5
-
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             for step in range(int(n_samples / batch_size)):
-                start_idx = step*batch_size
+                start_idx = step * batch_size
                 end_idx = start_idx + batch_size
+                img = img_tensor[start_idx:end_idx, :, :, :]
 
+                noisey_inputs = AutoEncoder.add_noise(img, noise_factor=.25, cuda=self.cuda)
 
-                noisey_inputs = AutoEncoder.add_noise(img_tensor[start_idx:end_idx, :, :, :], noise_factor=.25)
+                # forward
+                out = self.forward(x=noisey_inputs)
+                loss = loss_function(out, img)
 
+                # backward
                 # zero the parameter gradients
                 optimizer.zero_grad()
-
-                # forward + backward + optimize
-                reconstruction, h = self.forward(x=noisey_inputs)
-                loss = loss_function(img_tensor[start_idx:end_idx, :, :, :], reconstruction)
                 loss.backward()
                 optimizer.step()
-                # print statistics
-                #running_loss += loss.item()
 
                 print("Epoch: {}, step: {}, Train Loss {:.4f}".format(epoch, step, loss.item()))
-
-            #print(self.h)
-
-            #imshow(img=torchvision.utils.make_grid(inputs), save=True, fname='true-{}.png'.format(epoch+1))
-            #imshow(img=torchvision.utils.make_grid(noisey_inputs), save=True, fname='noisy-{}.png'.format(epoch+1))
-            #imshow(img=torchvision.utils.make_grid(reconstruction), save=True, fname='reconstruction-{}.png'.format(epoch+1))
-
-
         print('Finished Training')
+
 
 if __name__ == "__main__":
 
@@ -138,17 +137,18 @@ if __name__ == "__main__":
     import numpy as np
     from grid.create_grid import RegionGrid
 
+
     # functions to show an image
 
-
     def imshow(img, save=False, fname=None):
-        img = img / 2 + 0.5     # unnormalize
+        img = img / 2 + 0.5  # unnormalize
         npimg = img.detach().numpy()
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
         if save:
             plt.savefig("tmp/" + fname)
         else:
             plt.show()
+
 
     c = get_config()
     file = open(c["poi_file"], 'rb')
@@ -158,5 +158,5 @@ if __name__ == "__main__":
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
 
-    auto_encoder = AutoEncoder(img_dims=(640,640), h_dim_size=32)
+    auto_encoder = AutoEncoder(img_dims=(640, 640), h_dim_size=32)
     auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)
