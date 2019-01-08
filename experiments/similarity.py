@@ -73,6 +73,7 @@ if __name__ == "__main__":
 
     c = get_config()
     region_grid = RegionGrid(config=c, load_imgs=False)
+    region_grid.load_housing_data(c['housing_data_file'])
 
     y_house = region_grid.get_target_var("house_price")
     y_is_valid = np.where(~np.isnan(y_house))[0]
