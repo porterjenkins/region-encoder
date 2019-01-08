@@ -7,7 +7,24 @@ from grid.create_grid import RegionGrid
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import pandas as pd
+from sklearn.neighbors import NearestNeighbors
 
+def get_knn(X, k, idx_coor_map):
+    nbrs = NearestNeighbors(n_neighbors=k, algorithm='ball_tree')
+    nbrs.fit(X)
+    distances, indices = nbrs.kneighbors(X)
+    for i in range(X.shape[0]):
+        id_i = idx_coor_map[i]
+        print("{}: region {}: ".format(i, id_i))
+        nbhrs_id = list()
+        for j in range(k):
+            if j > 0:
+                mtx_idx = indices[i, j]
+                nbhrs_id.append(idx_coor_map[mtx_idx])
+        nbhrs_str = ", ".join(nbhrs_id)
+        print("--> " + nbhrs_str)
+
+    return distances, indices
 
 class SimilarityModel(object):
     def __init__(self, y, weight_mtx):
@@ -47,7 +64,7 @@ class SimilarityModel(object):
         mean_cv_err = np.round(np.mean(errors, axis=0), 4)
         std_cv_err = np.round(np.std(errors, axis=0), 4)
 
-        return mean_cv_err[0], std_cv_err[0], mean_cv_err[1], std_cv_err[1]
+        return mean_cv_err[0], std_cv_err[0], mean_cv_err[1], std_cv_err[1], errors
 
 
 
@@ -70,7 +87,7 @@ if __name__ == "__main__":
     D_euclidean = D_euclidean[:, y_is_valid]
     mod_euclidean = SimilarityModel(y_house, D_euclidean)
 
-    mse, mse_std, mae, mae_std  = mod_euclidean.cv_ols()
+    mse, mse_std, mae, mae_std, err_euclidean = mod_euclidean.cv_ols()
     results.append(['euclidean', mse, mse_std, mae, mae_std])
 
     # Run with Taxi flow as weighted edges
@@ -80,7 +97,7 @@ if __name__ == "__main__":
 
     mod_flow = SimilarityModel(y_house, W)
 
-    mse, mse_std, mae, mae_std  = mod_flow.cv_ols()
+    mse, mse_std, mae, mae_std, err_flow = mod_flow.cv_ols()
     results.append(['flow', mse, mse_std, mae, mae_std])
 
 
@@ -92,7 +109,7 @@ if __name__ == "__main__":
 
     mod_deepwalk = SimilarityModel(y_house, W_deepwalk)
 
-    mse, mse_std, mae, mae_std  = mod_deepwalk.cv_ols()
+    mse, mse_std, mae, mae_std, err_deepwalk = mod_deepwalk.cv_ols()
     results.append(['deepwalk', mse, mse_std, mae, mae_std])
 
 
@@ -104,7 +121,7 @@ if __name__ == "__main__":
 
     mod_re = SimilarityModel(y_house, W_re)
 
-    mse, mse_std, mae, mae_std  = mod_re.cv_ols()
+    mse, mse_std, mae, mae_std, err_re = mod_re.cv_ols()
     results.append(['proposed', mse, mse_std, mae, mae_std])
 
 
@@ -114,3 +131,14 @@ if __name__ == "__main__":
 
 
     results.to_csv("similarity-results.csv", index=False)
+
+
+
+
+    ## Post hoc analysis of neighborhoods
+    print("---- KNN Analysis: Euclidean -----")
+    get_knn(D_euclidean, 5, region_grid.idx_coor_map)
+    print("---- KNN Analysis: DeepWalk -----")
+    get_knn(deepwalk, 5, region_grid.idx_coor_map)
+    print("---- KNN Analysis: Proposed -----")
+    get_knn(re_embed, 5, region_grid.idx_coor_map)

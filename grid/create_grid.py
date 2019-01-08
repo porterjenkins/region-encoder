@@ -634,8 +634,9 @@ class Region:
 
     def compute_distances(self):
 
-        x_points = (self.points['nw'], self.points['ne'])
-        y_points = (self.points['nw'], self.points['sw'])
+
+        x_points = (self.points['nw'], self.points['sw'])
+        y_points = (self.points['nw'], self.points['ne'])
 
         x_dist = distance(x_points[0], x_points[1])
         y_dist = distance(y_points[0], y_points[1])
