@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from model.get_karate_data import *
 import torch.optim as optim
+
+from model.get_karate_data import *
+
 
 class GCN(nn.Module):
     """
@@ -12,6 +14,7 @@ class GCN(nn.Module):
         - D: Diagonal matrix (D^-1/2)
         - X: Nodal feature matrix
     """
+
     def __init__(self, n_nodes, n_features, n_classes, h_dim_size=16):
         super(GCN, self).__init__()
         self.n_nodes = n_nodes
@@ -21,18 +24,15 @@ class GCN(nn.Module):
         # Output layer for link prediction
         self.fcl_1 = nn.Linear(512, h_dim_size, bias=True)
 
-
-
     def forward(self, X, A, D):
         # G = D*A*D*X*W
-        G_0 = torch.mm(torch.mm(A, torch.mm(A,D)), X)
+        G_0 = torch.mm(torch.mm(A, torch.mm(A, D)), X)
         H_0 = F.relu(self.fcl_0(G_0))
 
-        G_1 = torch.mm(torch.mm(A, torch.mm(A,D)), H_0)
+        G_1 = torch.mm(torch.mm(A, torch.mm(A, D)), H_0)
         H_1 = self.fcl_1(G_1)
 
         return H_1
-
 
     def get_optimizer(self):
         criterion = nn.CrossEntropyLoss()
@@ -50,7 +50,7 @@ class GCN(nn.Module):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            output, H = gcn.forward(X_train, A_hat, D_hat)
+            output = gcn.forward(X_train, A_hat, D_hat)
             loss = cross_entropy(output, y_train)
             loss.backward()
             optimizer.step()
@@ -62,14 +62,10 @@ class GCN(nn.Module):
         print('Finished Training')
 
 
-
-
 if __name__ == "__main__":
-
     A = get_adj_mtx()
     X = get_features()
     W = get_weighted_graph(A.shape[0])
-
 
     n_nodes = X.shape[0]
     n_feature = X.shape[1]
@@ -84,7 +80,6 @@ if __name__ == "__main__":
     D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
     A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
     labels = torch.from_numpy(y).type(torch.LongTensor)
-
 
     gcn = GCN(n_nodes=n_nodes, n_features=2, n_classes=4, h_dim_size=16)
 
