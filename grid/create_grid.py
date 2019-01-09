@@ -80,8 +80,6 @@ class RegionGrid:
                 self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
                                                                           grid_partition_map)
 
-        if config['housing_data_file'] is not None and os.path.isfile(config['housing_data_file']):
-            self.load_housing_data(config['housing_data_file'])
 
 
     def load_poi(self, poi):
@@ -158,16 +156,23 @@ class RegionGrid:
 
     def load_housing_data(self, housing_data):
         df = pandas.read_csv(housing_data)
-        df = df[['lat', 'lon', 'sold', 'sqft']]
+        #df = df[['lat', 'lon', 'sold', 'sqft']]
+
+        reg_coor = numpy.zeros(df.shape[0], dtype=object)
         missed = 0
         for index, row in df.iterrows():
             lat, lon, price, sqft = float(row.lat), float(row.lon), RegionGrid.parse_price(row.sold), float(row.sqft)
             region = self.get_region_for_coor(lat, lon)
+
             if region is not None:
-                region.add_home(price / sqft)
+                region.add_home(price / float(sqft))
+                reg_coor[index] = region.coordinate_name
             else:
+                reg_coor[index] = numpy.nan
                 missed += 1
         print(f"{missed} rows of zillow data not loaded")
+        df['region_coor'] = reg_coor
+        return df
 
     @staticmethod
     def create_regions(grid_size, x_space, y_space, img_dir, img_dims, load_imgs, std_img, sample_prob):
@@ -634,8 +639,9 @@ class Region:
 
     def compute_distances(self):
 
-        x_points = (self.points['nw'], self.points['ne'])
-        y_points = (self.points['nw'], self.points['sw'])
+
+        x_points = (self.points['nw'], self.points['sw'])
+        y_points = (self.points['nw'], self.points['ne'])
 
         x_dist = distance(x_points[0], x_points[1])
         y_dist = distance(y_points[0], y_points[1])
