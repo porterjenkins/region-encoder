@@ -70,7 +70,7 @@ naive_err = np.zeros((n_folds, 2))
 deepwalk_err = np.zeros((n_folds, 2))
 embed_err = np.zeros((n_folds, 2))
 
-train_ind_arr = np.arange(deepwalk_df.shape[0])
+train_ind_arr = np.arange(deepwalk_features.shape[0])
 
 fold_cntr = 0
 for train_idx, test_idx in k_fold.split(train_ind_arr):
@@ -137,14 +137,14 @@ deepwalk_err_std = np.std(deepwalk_err, axis=0)
 
 
 print("Naive Model:")
-print('RMSE: {:.4f} ({})'.format(naive_err_mean[0], naive_err_std[0]))
-print('MAE: {:.4f} ({})'.format(naive_err_mean[1], naive_err_std[1]))
+print('RMSE: {:.4f} ({:.4f})'.format(naive_err_mean[0], naive_err_std[0]))
+print('MAE: {:.4f} ({:.4f})'.format(naive_err_mean[1], naive_err_std[1]))
 
 print("Deepwalk Model:")
-print('RMSE: {:.4f} ({})'.format(deepwalk_err_mean[0], deepwalk_err_std[0]))
-print('MAE: {:.4f} ({})'.format(deepwalk_err_mean[1], deepwalk_err_std[1]))
+print('RMSE: {:.4f} ({:.4f})'.format(deepwalk_err_mean[0], deepwalk_err_std[0]))
+print('MAE: {:.4f} ({:.4f})'.format(deepwalk_err_mean[1], deepwalk_err_std[1]))
 
 
 print("Embedding Model:")
-print('RMSE: {:.4f} ({})'.format(embed_err_mean[0], embed_err_std[0]))
-print('MAE: {:.4f} ({})'.format(embed_err_mean[1], embed_err_std[1]))
+print('RMSE: {:.4f} ({:.4f})'.format(embed_err_mean[0], embed_err_std[0]))
+print('MAE: {:.4f} ({:.4f})'.format(embed_err_mean[1], embed_err_std[1]))
