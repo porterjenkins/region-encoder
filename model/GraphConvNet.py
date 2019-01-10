@@ -56,8 +56,8 @@ class GCN(nn.Module):
         :param h_graph:
         :return:
         """
-        h_graph_sim = torch.mm(h_graph, torch.transpose(h_graph, 0, 1))
-        f_o_proximity = torch.sigmoid(h_graph_sim)
+        h_graph_dissim = -torch.mm(h_graph, torch.transpose(h_graph, 0, 1))
+        f_o_proximity = torch.sigmoid(h_graph_dissim)
         return f_o_proximity
 
     @staticmethod
@@ -153,8 +153,8 @@ class GCN(nn.Module):
         :return:
         """
         loss_ind = empirical_graph_prox * torch.log(learned_graph_prox)
-        loss_ind = torch.triu(loss_ind)
-        loss = - torch.sum(loss_ind)
+        loss_ind_triu = torch.triu(loss_ind)
+        loss = - torch.sum(loss_ind_triu)
         return loss
 
     @staticmethod
@@ -190,16 +190,21 @@ class GCN(nn.Module):
 
             # forward propogation step
             H = self.forward(X=X, A=A_hat, D=D_hat)
-            graph_proximity = GCN.get_weighted_proximity(H)
-
             # generate positive samples for gcn
             gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, H, batch_size)
             # generate negative samples for gcn
             neg_probs = GCN.get_sample_distribution(D)
             gcn_neg_samples, neg_sample_probs = GCN.gen_neg_samples_gcn(n_neg_samples, A, H, region_mtx_map, batch_size, neg_probs)
-            # compute loss
+            # compute skipgram loss
             loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples, neg_sample_probs)
-            loss_edge_weights = GCN.loss_weighted_edges(graph_proximity, W)
+
+            # compute first order proximity loss
+            # get learned first-order proximity
+            graph_proximity = GCN.get_weighted_proximity(H)
+            # normalize empirical proximity over whole matrix W
+            emp_proximity = W / torch.sum(W)
+            # compute loss
+            loss_edge_weights = GCN.loss_weighted_edges(graph_proximity, emp_proximity)
 
             loss = GCN.loss_main(loss_skip_gram, loss_edge_weights, penalty)
             loss.backward()
