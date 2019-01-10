@@ -9,7 +9,7 @@ from model.GraphConvNet import GCN
 from model.discriminator import DiscriminatorMLP
 from config import get_config
 import numpy as np
-
+import matplotlib.pyplot as plt
 from grid.create_grid import RegionGrid
 
 
@@ -49,6 +49,12 @@ class RegionEncoder(nn.Module):
 
         # Final model hidden state
         self.embedding = torch.Tensor
+        # Store loss values
+        self.loss_seq = []
+        self.loss_seq_gcn = []
+        self.loss_seq_edge = []
+        self.loss_seq_disc = []
+        self.loss_seq_ae = []
 
     def forward(self, X, A, D, img_tensor):
 
@@ -174,6 +180,39 @@ class RegionEncoder(nn.Module):
 
                 f.write("\n")
 
+    def plt_learning_curve(self, fname=None, log_scale=True):
+        x = np.arange(1, len(self.loss_seq) + 1)
+
+        if log_scale:
+
+            plt.plot(x, np.log(self.loss_seq), label='Total Loss')
+            plt.plot(x, np.log(self.loss_seq_gcn), label="SkipGram GCN")
+            plt.plot(x, np.log(self.loss_seq_edge), label='Weighted Edge')
+            plt.plot(x, np.log(self.loss_seq_ae), label="AutoEncoder")
+            plt.plot(x, np.log(self.loss_seq_disc), label='Discriminator')
+
+        else:
+
+            plt.plot(x, self.loss_seq, label='Total Loss')
+            plt.plot(x, self.loss_seq_gcn, label="SkipGram GCN")
+            plt.plot(x, self.loss_seq_edge, label='Weighted Edge')
+            plt.plot(x, self.loss_seq_ae, label="AutoEncoder")
+            plt.plot(x, self.loss_seq_disc, label='Discriminator')
+
+        plt.legend(loc='best')
+
+        if fname is not None:
+            dir = os.path.dirname(fname)
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+
+            plt.savefig(fname)
+            plt.clf()
+            plt.close()
+
+        else:
+            plt.show()
+
     def __earling_stop(self, seq, tol, order):
         """
         Determine early stopping of training job
@@ -217,7 +256,7 @@ class RegionEncoder(nn.Module):
         batch_size = A.shape[0]
         print("Beginning training job: epochs: {}, batch size: {}".format(epochs, batch_size))
 
-        loss_seq = list()
+
         for i in range(epochs):
 
             optimizer.zero_grad()
@@ -246,18 +285,24 @@ class RegionEncoder(nn.Module):
             loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae)
             loss.backward()
             optimizer.step()
-            loss_seq.append(loss.item())
 
-            if np.isnan(loss_seq[-1]):
+            # store loss values for learning curve
+            self.loss_seq.append(loss.item())
+            self.loss_seq_gcn.append(self.lambda_g*L_graph.item())
+            self.loss_seq_edge.append(self.lambda_edge*L_edge_weights.item())
+            self.loss_seq_disc.append(L_disc.item())
+            self.loss_seq_ae.append(self.lambda_ae*L_ae.item())
+
+            if np.isnan(self.loss_seq[-1]):
                 print("Exploding/Vanishing gradient: loss = nan")
                 break
-            elif self.__earling_stop(loss_seq, tol, tol_order):
+            elif self.__earling_stop(self.loss_seq, tol, tol_order):
                 print("Terminating early: Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
-                      " autoencoder: {:.4f})".format(i+1, loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
+                      " autoencoder: {:.4f})".format(i+1, self.loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
                 break
             else:
                 print("Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
-                      " autoencoder: {:.4f})".format(i + 1, loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
+                      " autoencoder: {:.4f})".format(i + 1, self.loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
 
         self.embedding = h_global
 
@@ -272,7 +317,8 @@ if __name__ == "__main__":
 
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
                         lambda_g=0.05, neg_samples_gcn=25)
-    mod.run_train_job(region_grid, epochs=250, lr=.01, tol_order=3)
+    mod.run_train_job(region_grid, epochs=10, lr=.01, tol_order=3)
     mod.write_embeddings(c['embedding_file'])
+    mod.plt_learning_curve("plots/region-learning-curve.pdf")
 
 
