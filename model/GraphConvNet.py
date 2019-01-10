@@ -7,6 +7,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
 from grid.create_grid import RegionGrid
+import numpy as np
 
 
 class GCN(nn.Module):
