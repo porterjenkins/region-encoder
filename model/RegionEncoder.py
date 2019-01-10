@@ -191,6 +191,9 @@ class RegionEncoder(nn.Module):
             plt.plot(x, np.log(self.loss_seq_ae), label="AutoEncoder")
             plt.plot(x, np.log(self.loss_seq_disc), label='Discriminator')
 
+            plt.xlabel("Epochs")
+            plt.ylabel("Loss (log scale)")
+
         else:
 
             plt.plot(x, self.loss_seq, label='Total Loss')
@@ -198,6 +201,9 @@ class RegionEncoder(nn.Module):
             plt.plot(x, self.loss_seq_edge, label='Weighted Edge')
             plt.plot(x, self.loss_seq_ae, label="AutoEncoder")
             plt.plot(x, self.loss_seq_disc, label='Discriminator')
+
+            plt.xlabel("Epochs")
+            plt.ylabel("Loss")
 
         plt.legend(loc='best')
 
@@ -317,7 +323,7 @@ if __name__ == "__main__":
 
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
                         lambda_g=0.05, neg_samples_gcn=25)
-    mod.run_train_job(region_grid, epochs=10, lr=.01, tol_order=3)
+    mod.run_train_job(region_grid, epochs=100, lr=.01, tol_order=3)
     mod.write_embeddings(c['embedding_file'])
     mod.plt_learning_curve("plots/region-learning-curve.pdf")
 

@@ -37,8 +37,18 @@ def create_url_for_region_no_marker(r, x=640, y=640):
     return vmap.generate_url()
 
 
-def get_images_for_all_no_marker(region_grid, file_prefix=""):
+def get_images_for_all_no_marker(region_grid, file_prefix="", clear_dir=False):
     urls = create_urls_no_marker(region_grid)
+
+    if clear_dir:
+        for file in os.listdir(path_to_image_dir):
+            file_path = os.path.join(path_to_image_dir, file)
+            try:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+                    # elif os.path.isdir(file_path): shutil.rmtree(file_path)
+            except Exception as e:
+                print(e)
 
     for id, url in urls.items():
         fn = id.replace(',', '-')

@@ -50,21 +50,19 @@ class RegionGrid:
             self.lat_max = config['lat_max']
 
         self.grid_size = config['grid_size']
+        self.img_dir = config['path_to_image_dir']
+        self.img_tensor = numpy.array
         # define y space with longitude
         self.y_space = numpy.linspace(self.lon_min, self.lon_max, self.grid_size + 1)
         # define x space latitude
         self.x_space = numpy.linspace(self.lat_min, self.lat_max, self.grid_size + 1)
         # create regions, adjacency matrix, degree matrix, and image tensor
-        self.regions, self.adj_matrix, self.degree_matrix, self.img_tensor, self.matrix_idx_map, grid_partition_map = \
+        self.regions, self.adj_matrix, self.degree_matrix, self.matrix_idx_map, grid_partition_map = \
             RegionGrid.create_regions(
                 config['grid_size'],
                 self.x_space,
                 self.y_space,
-                img_dir=config['path_to_image_dir'],
-                img_dims=img_dims,
-                load_imgs=load_imgs,
-                sample_prob=sample_prob,
-                std_img=True
+                sample_prob=sample_prob
             )
         self.n_regions = len(self.regions)
         # Reverse mapping: index to coordinate name
@@ -174,14 +172,27 @@ class RegionGrid:
         df['region_coor'] = reg_coor
         return df
 
+    def load_img_data(self, img_dims=(640,640), std_img=True):
+
+        idx_cntr = 0
+        # init image tensor: n_samples x n_channels x n_rows x n_cols
+        self.img_tensor = numpy.zeros((self.grid_size ** 2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
+        for coor_idx, r in self.regions.items():
+            r.load_sat_img(self.img_dir, standarize=std_img)
+            self.img_tensor[idx_cntr, :, :, :] = r.sat_img
+
+            idx_cntr += 1
+
+
+
     @staticmethod
-    def create_regions(grid_size, x_space, y_space, img_dir, img_dims, load_imgs, std_img, sample_prob):
+    def create_regions(grid_size, x_space, y_space, sample_prob):
         logging.info("Running create regions job")
         regions = {}
         grid_index = {}
         index = 0
         # init image tensor: n_samples x n_channels x n_rows x n_cols
-        img_tensor = numpy.zeros((grid_size ** 2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
+        #img_tensor = numpy.zeros((grid_size ** 2, 3, img_dims[0], img_dims[1]), dtype=numpy.float32)
 
         # Probability of sampling constructing a given region
         if sample_prob is not None:
@@ -202,9 +213,9 @@ class RegionGrid:
                     sw = (x_space[x_point], y_space[y_point + 1])
                     se = (x_space[x_point + 1], y_space[y_point + 1])
                     r = Region(f"{x_point},{y_point}", index, {'nw': nw, 'ne': ne, 'sw': sw, 'se': se})
-                    if load_imgs:
-                        r.load_sat_img(img_dir, standarize=std_img)
-                        img_tensor[index, :, :, :] = r.sat_img
+                    #if load_imgs:
+                    #    r.load_sat_img(img_dir, standarize=std_img)
+                    #    img_tensor[index, :, :, :] = r.sat_img
                     print("Initializing region: %s" % r.coordinate_name)
                     index += 1
                     regions[f"{x_point},{y_point}"] = r
@@ -253,10 +264,10 @@ class RegionGrid:
                 matrix[index][adj_index] = 1
 
         # Update image tensor to correct dimensions, if sampling is used
-        if sample_prob is not None:
-            img_tensor = img_tensor[range(v), :, :, :]
+        #if sample_prob is not None:
+        #    img_tensor = img_tensor[range(v), :, :, :]
 
-        return regions, matrix, RegionGrid.get_degree_mtx(matrix), img_tensor, coor_index_mapping, grid_partition_map
+        return regions, matrix, RegionGrid.get_degree_mtx(matrix), coor_index_mapping, grid_partition_map
 
     @staticmethod
     def get_degree_mtx(A):
@@ -663,14 +674,15 @@ class Region:
         return mid
 
 
-def get_images_for_grid(region_grid):
+def get_images_for_grid(region_grid, clear_dir=False):
     from image.image_retrieval import get_images_for_all_no_marker
-    get_images_for_all_no_marker(region_grid)
+    get_images_for_all_no_marker(region_grid, clear_dir=clear_dir)
 
 
 if __name__ == '__main__':
     c = get_config()
     region_grid = RegionGrid(config=c, load_imgs=True)
+    region_grid.load_img_data(std_img=True)
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     W = region_grid.weighted_mtx
