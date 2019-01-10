@@ -51,6 +51,7 @@ class RegionGrid:
 
         self.grid_size = config['grid_size']
         self.img_dir = config['path_to_image_dir']
+        self.weight_mtx_fname = config['flow_mtx_file']
         self.img_tensor = numpy.array
         # define y space with longitude
         self.y_space = numpy.linspace(self.lon_min, self.lon_max, self.grid_size + 1)
@@ -67,17 +68,7 @@ class RegionGrid:
         self.n_regions = len(self.regions)
         # Reverse mapping: index to coordinate name
         self.idx_coor_map = dict(zip(self.matrix_idx_map.values(), self.matrix_idx_map.keys()))
-        self.feature_matrix = self.create_feature_matrix()
-        # self.matrix_idx_map = dict(zip(list(self.regions.keys()), range(grid_size**2)))
-
-        if config['flow_mtx_file'] is not None and os.path.isfile(config['flow_mtx_file']):
-            self.weighted_mtx = self.load_weighted_mtx(config['flow_mtx_file'])
-            self.weighted_mtx = RegionGrid.normalize_mtx(self.weighted_mtx)
-            if sample_prob is not None:
-                # Update weighted matrix to reflect sampled regions
-                self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
-                                                                          grid_partition_map)
-
+        self.feature_matrix = self.create_feature_matrix()\
 
 
     def load_poi(self, poi):
@@ -182,6 +173,15 @@ class RegionGrid:
             self.img_tensor[idx_cntr, :, :, :] = r.sat_img
 
             idx_cntr += 1
+
+    def load_weighted_mtx(self):
+        self.weighted_mtx = self.get_mtx(self.weight_mtx_fname)
+        self.weighted_mtx = RegionGrid.normalize_mtx(self.weighted_mtx)
+        #if sample_prob is not None:
+        #    # Update weighted matrix to reflect sampled regions
+        #    self.weighted_mtx = RegionGrid.update_arr_two_dim_sampled(self.weighted_mtx, self.regions,
+        #                                                              grid_partition_map)
+
 
 
 
@@ -436,7 +436,7 @@ class RegionGrid:
 
         return flow_matrix
 
-    def load_weighted_mtx(self, fname):
+    def get_mtx(self, fname):
         with open(fname, 'rb') as f:
             W = pickle.load(f)
         return W
@@ -681,8 +681,11 @@ def get_images_for_grid(region_grid, clear_dir=False):
 
 if __name__ == '__main__':
     c = get_config()
-    region_grid = RegionGrid(config=c, load_imgs=True)
+    region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
+    region_grid.load_weighted_mtx()
+
+
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     W = region_grid.weighted_mtx

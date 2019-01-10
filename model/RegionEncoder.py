@@ -319,6 +319,8 @@ class RegionEncoder(nn.Module):
 if __name__ == "__main__":
     c = get_config()
     region_grid = RegionGrid(config=c)
+    region_grid.load_img_data(std_img=True)
+    region_grid.load_weighted_mtx()
     n_nodes = len(region_grid.regions)
 
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
