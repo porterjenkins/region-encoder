@@ -9,6 +9,14 @@ import xgboost
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import KFold
 
+if len(sys.argv) > 1:
+    n_epochs = int(sys.argv[1])
+else:
+    n_epochs = 250
+
+n_folds = 5
+
+print("K-Fold Prediction - training epochs: {}".format(n_epochs))
 
 
 def get_train_test_idx(n, train_size=.8):
@@ -26,7 +34,8 @@ def get_train_test_idx(n, train_size=.8):
 
 
 c = get_config()
-region_grid = RegionGrid(config=c, load_imgs=False)
+region_grid = RegionGrid(config=c)
+region_grid.load_weighted_mtx()
 zillow = region_grid.load_housing_data(c['housing_data_file'])
 
 
@@ -41,9 +50,6 @@ param = {
     'silent': 1,
     'seed': 123
 }
-
-n_epochs = 250
-n_folds = 5
 
 
 features = zillow[['numBedrooms', 'numBathrooms', 'sqft', 'region_coor', 'priceSqft','lat', 'lon']]

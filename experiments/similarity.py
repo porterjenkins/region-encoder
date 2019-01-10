@@ -72,7 +72,8 @@ class SimilarityModel(object):
 if __name__ == "__main__":
 
     c = get_config()
-    region_grid = RegionGrid(config=c, load_imgs=False)
+    region_grid = RegionGrid(config=c)
+    region_grid.load_weighted_mtx()
     region_grid.load_housing_data(c['housing_data_file'])
 
     y_house = region_grid.get_target_var("house_price")
