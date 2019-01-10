@@ -1,5 +1,5 @@
 model,cv mse,std mse,cv mae,std mae
-euclidean,,,,
-flow,,,,
-deepwalk,,,,
-proposed,,,,
+euclidean,4254.4373,4183.4102,55.2366,34.6895
+flow,5277.9849,6278.7515,56.864,45.2159
+deepwalk,1817.0354,2445.237,33.8623,25.8916
+proposed,4020.7418,5336.5943,51.9292,36.3881

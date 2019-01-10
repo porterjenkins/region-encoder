@@ -211,7 +211,9 @@ class GCN(nn.Module):
             optimizer.step()
 
             # print statistics
-            print("Epoch: {}, Train Loss {:.4f}".format(epoch, loss))
+            print("Epoch: {}, Train Loss {:.4f} -- skip-gram: {:.4f}, first-order: {:.4f}".format(epoch, loss,
+                                                                                                  loss_skip_gram,
+                                                                                                  loss_edge_weights))
 
         print('Finished Training')
 
@@ -224,4 +226,4 @@ if __name__ == "__main__":
     n_nodes = len(region_grid.regions)
     gcn = GCN(n_nodes=n_nodes, n_features=552, h_dim_size=16)
 
-    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.01, penalty=(1, .5))
+    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.01, penalty=(1, 1))

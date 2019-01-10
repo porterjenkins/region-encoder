@@ -228,15 +228,18 @@ class RegionEncoder(nn.Module):
             # generate positive samples for gcn
             gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
-            gcn_neg_samples = GCN.gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph, region_mtx_map, batch_size)
+            neg_probs = GCN.get_sample_distribution(D)
+            gcn_neg_samples, neg_sample_probs = GCN.gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph, region_mtx_map, batch_size,
+                                                      neg_probs)
             # get labels for discriminator
             eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
             # Add noise to images
             img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25)
 
             # Get different objectives
-            L_graph = GCN.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
-            L_edge_weights = GCN.loss_weighted_edges(graph_proximity, W)
+            L_graph = GCN.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples, neg_sample_probs)
+            emp_proximity = W / torch.sum(W)
+            L_edge_weights = GCN.loss_weighted_edges(graph_proximity, emp_proximity)
             L_disc = self.loss_disc(eta, logits)
             L_ae = AutoEncoder.loss_mse(img_noisey, image_hat)
 
@@ -269,7 +272,7 @@ if __name__ == "__main__":
 
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
                         lambda_g=0.05, neg_samples_gcn=25)
-    mod.run_train_job(region_grid, epochs=100, lr=.005, tol_order=3)
+    mod.run_train_job(region_grid, epochs=250, lr=.01, tol_order=3)
     mod.write_embeddings(c['embedding_file'])
 
 
