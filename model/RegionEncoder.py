@@ -260,7 +260,8 @@ class RegionEncoder(nn.Module):
         img_tensor = torch.Tensor(region_grid.img_tensor)
 
         batch_size = A.shape[0]
-        print("Beginning training job: epochs: {}, batch size: {}".format(epochs, batch_size))
+        print("Beginning training job: epochs: {}, batch size: {}, learning rate:{}".format(epochs, batch_size,
+                                                                                            learning_rate))
 
 
         for i in range(epochs):
@@ -323,10 +324,22 @@ if __name__ == "__main__":
     region_grid.load_weighted_mtx()
     n_nodes = len(region_grid.regions)
 
-    mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
-                        lambda_g=0.05, neg_samples_gcn=25)
-    mod.run_train_job(region_grid, epochs=100, lr=.01, tol_order=3)
-    mod.write_embeddings(c['embedding_file'])
-    mod.plt_learning_curve("plots/region-learning-curve.pdf")
+    if len(sys.argv) > 1:
+        epochs = int(sys.argv[1])
+        learning_rate = float(sys.argv[2])
+
+        mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
+                            lambda_g=0.05, neg_samples_gcn=25)
+        mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
+        mod.write_embeddings(c['embedding_file'])
+        mod.plt_learning_curve("plots/region-learning-curve.pdf")
+
+    else:
+
+        mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
+                            lambda_g=0.05, neg_samples_gcn=25)
+        mod.run_train_job(region_grid, epochs=50, lr=.01, tol_order=3)
+        mod.write_embeddings(c['embedding_file'])
+        mod.plt_learning_curve("plots/region-learning-curve.pdf")
 
 
