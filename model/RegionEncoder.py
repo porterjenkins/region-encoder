@@ -97,12 +97,6 @@ class RegionEncoder(nn.Module):
         return loss_disc
 
 
-    def loss_ae(self, img_input, img_reconstruction):
-        err = img_input - img_reconstruction
-        mse = torch.mean(torch.pow(err, 2))
-
-        return mse
-
     def loss_function(self, L_graph, L_edge_weights, L_disc, L_ae):
         """
         Global loss function for model. Loss has the following components:
@@ -244,7 +238,7 @@ class RegionEncoder(nn.Module):
             L_graph = GCN.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
             L_edge_weights = GCN.loss_weighted_edges(graph_proximity, W)
             L_disc = self.loss_disc(eta, logits)
-            L_ae = self.loss_ae(img_noisey, image_hat)
+            L_ae = AutoEncoder.loss_mse(img_noisey, image_hat)
 
             loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae)
             loss.backward()

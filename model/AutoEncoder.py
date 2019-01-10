@@ -8,6 +8,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
+from grid.create_grid import RegionGrid
 
 class AutoEncoder(nn.Module):
     """
@@ -79,12 +80,9 @@ class AutoEncoder(nn.Module):
 
 
     def get_optimizer(self):
-        criterion = nn.MSELoss()
-        # TODO: Try BCE loss?
-        #criterion = torch.nn.BCELoss()
         optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
 
-        return criterion, optimizer
+        return optimizer
     @staticmethod
     def add_noise(image_tensor, noise_factor=.5):
 
@@ -97,8 +95,15 @@ class AutoEncoder(nn.Module):
 
         return noised_image
 
+    @staticmethod
+    def loss_mse(img_input, img_reconstruction):
+        err = img_input - img_reconstruction
+        mse = torch.mean(torch.pow(err, 2))
+
+        return mse
+
     def run_train_job(self, n_epoch, img_tensor):
-        loss_function, optimizer = self.get_optimizer()
+        optimizer = self.get_optimizer()
         n_samples = img_tensor.shape[0]
         batch_size = 5
 
@@ -115,7 +120,7 @@ class AutoEncoder(nn.Module):
 
                 # forward + backward + optimize
                 reconstruction, h = self.forward(x=noisey_inputs)
-                loss = loss_function(img_tensor[start_idx:end_idx, :, :, :], reconstruction)
+                loss = AutoEncoder.loss_mse(img_tensor[start_idx:end_idx, :, :, :], reconstruction)
                 loss.backward()
                 optimizer.step()
                 # print statistics
@@ -151,9 +156,7 @@ if __name__ == "__main__":
             plt.show()
 
     c = get_config()
-    file = open(c["poi_file"], 'rb')
-    img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(grid_size=c['grid_size'], poi_file=file, img_dir=img_dir, w_mtx_file=c['flow_mtx_file'])
+    region_grid = RegionGrid(config=c, load_imgs=True)
     region_grid.img_tens_get_size()
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
