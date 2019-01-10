@@ -1,16 +1,10 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.get_karate_data import *
-
-import torch.optim as optim
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
 from grid.create_grid import RegionGrid
-import numpy as np
 
 
 class GCN(nn.Module):
@@ -21,22 +15,19 @@ class GCN(nn.Module):
         - A: Adjacency matrix
     """
 
-    def __init__(self, adj, n_features, n_classes, n_hidden=16):
-    def __init__(self, n_nodes, n_features, h_dim_size=16):
+    def __init__(self, n_features, h_dim_size=16):
+
         super(GCN, self).__init__()
         self.n_features = n_features
         self.n_classes = n_features
-        self.n_hidden = n_hidden
-        # pre process adj matrix ( D * (A + I) * D)
-        self.adj = self.normalize_adj(adj)
+        self.n_hidden = h_dim_size
 
         # fully connected layer 1
         self.fcl_0 = nn.Linear(n_features, 512, bias=True)
         # Output layer for link prediction
-        self.fcl_1 = nn.Linear(512, n_hidden, bias=True)
+        self.fcl_1 = nn.Linear(512, h_dim_size, bias=True)
 
         if torch.cuda.is_available():
-            self.adj = self.adj.cuda()
             self.fcl_0 = self.fcl_0.cuda()
             self.fcl_1 = self.fcl_1.cuda()
 
@@ -50,7 +41,7 @@ class GCN(nn.Module):
         return self.fcl_1(x)  # output layer
 
     def get_optimizer(self, lr):
-        optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
+        optimizer = torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9)
 
         return optimizer
 
@@ -127,6 +118,11 @@ class GCN(nn.Module):
 
     @staticmethod
     def loss_graph(h_graph, pos_samples, neg_samples, neg_probs):
+        if torch.cuda.is_available():
+            h_graph = h_graph.cuda()
+            pos_samples = pos_samples.cuda()
+            neg_samples = neg_samples.cuda()
+            neg_probs = neg_probs.cuda()
         n = h_graph.shape[0]
         h_dim = h_graph.shape[1]
         n_neg_samples = neg_samples.shape[1]
@@ -140,7 +136,6 @@ class GCN(nn.Module):
         l_neg_samples_ind = torch.log(neg_dot_sig)
         l_neg_samples_ind_mean = torch.mul(l_neg_samples_ind, neg_probs)
         l_neg_samples_total = torch.sum(l_neg_samples_ind_mean, dim=-1)
-
 
         dot = torch.sum(torch.mul(h_graph, pos_samples), dim=-1)
         dot_sig = torch.sigmoid(dot)
@@ -169,9 +164,10 @@ class GCN(nn.Module):
     @staticmethod
     def loss_main(loss_sg, loss_we, penalty=(1.0, 1.0)):
 
+        return penalty[0] * loss_sg + penalty[1] * loss_we
 
-        return penalty[0] * loss_sg + penalty[1]*loss_we
-
+    # ideally  this should be outside the module
+    # we should be passing all the parameters it needs then run it as opposed to half in and half out
     def run_train_job(self, region_grid, n_epoch, n_neg_samples=15, learning_rate=.01, penalty=(1.0, 1.0)):
         optimizer = self.get_optimizer(learning_rate)
 
@@ -189,8 +185,16 @@ class GCN(nn.Module):
         # Cast matrices to torch.tensor
         A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
         D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
+
         X = torch.from_numpy(X).type(torch.FloatTensor)
         W = torch.from_numpy(W).type(torch.FloatTensor)
+
+        # id like to move this out side of the instance
+        self.adj = torch.mm(D_hat, torch.mm(A_hat, D_hat))
+        if torch.cuda.is_available():
+            self.adj = self.adj.cuda()
+            X = X.cuda()
+            W = W.cuda()
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
 
@@ -198,12 +202,13 @@ class GCN(nn.Module):
             optimizer.zero_grad()
 
             # forward propogation step
-            H = self.forward(X=X, A=A_hat, D=D_hat)
+            H = self.forward(X=X)
             # generate positive samples for gcn
             gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, H, batch_size)
             # generate negative samples for gcn
             neg_probs = GCN.get_sample_distribution(D)
-            gcn_neg_samples, neg_sample_probs = GCN.gen_neg_samples_gcn(n_neg_samples, A, H, region_mtx_map, batch_size, neg_probs)
+            gcn_neg_samples, neg_sample_probs = GCN.gen_neg_samples_gcn(n_neg_samples, A, H, region_mtx_map, batch_size,
+                                                                        neg_probs)
             # compute skipgram loss
             loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples, neg_sample_probs)
 
@@ -226,26 +231,6 @@ class GCN(nn.Module):
 
         print('Finished Training')
 
-    @staticmethod
-    def normalize_adj(adj):
-        return to_torch_tensor(GCN.preprocess(adj))
-
-    @staticmethod
-    def normalize_adjacency_matrix(adj):
-        row_sum = np.array(adj.sum(1))  # D
-        d_inv_sqrt = np.power(row_sum, -0.5).flatten()  # D -1/2
-        # set infinities to 0
-        d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
-        d_mat = np.diag(d_inv_sqrt)  # diagonal node degree
-        # i think
-        # D^−1/2A^D^−1/2
-        return adj.dot(d_mat).dot(d_mat)
-
-    @staticmethod
-    def preprocess(adj):
-        # Ahat = A + I
-        return GCN.normalize_adjacency_matrix(adj + np.eye(adj.shape[0]))
-
 
 def to_torch_tensor(matrix, to_type=torch.FloatTensor):
     return torch.from_numpy(matrix).type(to_type)
@@ -256,5 +241,5 @@ if __name__ == "__main__":
     region_grid = RegionGrid(config=c)
     region_grid.load_weighted_mtx()
     n_nodes = len(region_grid.regions)
-    gcn = GCN(n_nodes=n_nodes, n_features=552, h_dim_size=32)
+    gcn = GCN(n_features=552, h_dim_size=32)
     gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.1, penalty=(1, 1))

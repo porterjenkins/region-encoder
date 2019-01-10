@@ -1,7 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 import torch.optim as optim
 
 
@@ -12,10 +12,14 @@ class DiscriminatorMLP(nn.Module):
         to unify graph/image hidden states into latent
         space
     """
+
     def __init__(self, x_features, z_features, h_dim_size=16):
         super(DiscriminatorMLP, self).__init__()
         self.W_0 = nn.Linear(x_features + z_features, h_dim_size, bias=True)
         self.W_output = nn.Linear(h_dim_size, 2, bias=True)
+        if torch.cuda.is_available():
+            self.W_0 = self.W_0.cuda()
+            self.W_output = self.W_output.cuda()
 
     def forward(self, x, z, activation=True):
         X = torch.cat((x, z), dim=-1)
@@ -28,8 +32,6 @@ class DiscriminatorMLP(nn.Module):
         return output, h
 
 
-
-
 class DiscriminatorNCF(nn.Module):
     """
     Discriminator for RegionEncoder model
@@ -37,10 +39,10 @@ class DiscriminatorNCF(nn.Module):
         paper (He et al. WWW17)
         - See eq. 11 for formulation of layer
     """
+
     def __init__(self, x_features, z_features):
         super(DiscriminatorNCF, self).__init__()
         pass
-
 
 
 if __name__ == "__main__":

@@ -8,7 +8,6 @@ import torch.optim as optim
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
-from grid.create_grid import RegionGrid
 
 
 class ViewEncode(nn.Module):
@@ -77,15 +76,16 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x):
 
-        x = self.encoder(x)
-        x = self.decoder(x)
+        h = self.encoder(x)
+        x = self.decoder(h)
 
-        return x
+        return x, h
 
     def get_optimizer(self):
         optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
 
         return optimizer
+
     @staticmethod
     def add_noise(image_tensor, noise_factor=.5, cuda=False):
 
@@ -108,10 +108,9 @@ class AutoEncoder(nn.Module):
         return mse
 
     def run_train_job(self, n_epoch, img_tensor):
-        optimizer = self.get_optimizer()
         if self.cuda:
             img_tensor = img_tensor.cuda()
-        loss_function, optimizer = self.get_optimizer()
+        optimizer = self.get_optimizer()
         n_samples = img_tensor.shape[0]
         batch_size = 5
         for epoch in range(n_epoch):  # loop over the dataset multiple times
@@ -123,8 +122,8 @@ class AutoEncoder(nn.Module):
                 noisey_inputs = AutoEncoder.add_noise(img, noise_factor=.25, cuda=self.cuda)
 
                 # forward
-                out = self.forward(x=noisey_inputs)
-                loss = loss_function(out, img)
+                reconstruction, h = self.forward(x=noisey_inputs)
+                loss = AutoEncoder.loss_mse(img_tensor[start_idx:end_idx, :, :, :], reconstruction)
 
                 # backward
                 # zero the parameter gradients
@@ -142,16 +141,18 @@ if __name__ == "__main__":
     import numpy as np
     from grid.create_grid import RegionGrid
 
+
     # functions to show an image
 
     def imshow(img, save=False, fname=None):
-        img = img / 2 + 0.5     # unnormalize
+        img = img / 2 + 0.5  # unnormalize
         npimg = img.detach().numpy()
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
         if save:
             plt.savefig("tmp/" + fname)
         else:
             plt.show()
+
 
     c = get_config()
     region_grid = RegionGrid(config=c)
@@ -160,5 +161,5 @@ if __name__ == "__main__":
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
 
-    auto_encoder = AutoEncoder(img_dims=(640,640), h_dim_size=32)
+    auto_encoder = AutoEncoder(img_dims=(640, 640), h_dim_size=32)
     auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)
