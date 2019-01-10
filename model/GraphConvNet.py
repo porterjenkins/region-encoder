@@ -176,7 +176,6 @@ class GCN(nn.Module):
             # zero the parameter gradients
             optimizer.zero_grad()
 
-
             # forward propogation step
             H = self.forward(X=X, A=A_hat, D=D_hat)
             graph_proximity = GCN.get_weighted_proximity(H)
@@ -190,7 +189,6 @@ class GCN(nn.Module):
             loss_edge_weights = GCN.loss_weighted_edges(graph_proximity, W)
 
             loss = GCN.loss_main(loss_skip_gram, loss_edge_weights, penalty)
-
             loss.backward()
             optimizer.step()
 

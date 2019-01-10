@@ -54,7 +54,7 @@ class RegionEncoder(nn.Module):
 
         # Forward step for graph data
         h_graph = self.graph_conv_net.forward(X, A, D)
-        graph_proximity = self._get_weighted_proximity(h_graph)
+        graph_proximity = GCN.get_weighted_proximity(h_graph)
 
         # Forward step for image data
         image_hat, h_image = self.auto_encoder.forward(img_tensor)
@@ -71,20 +71,6 @@ class RegionEncoder(nn.Module):
 
         return logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg, h_img_neg
 
-
-    def _get_weighted_proximity(self, h_graph):
-        """
-        compute sigmoid of similarity matrix. e.g.,:
-            1/(1 + exp(-X))
-                where X = HH'
-                and H = is an nxp matrix of node represntations
-                (each row i is an embedding vector for node i)
-        :param h_graph:
-        :return:
-        """
-        h_graph_sim = torch.mm(h_graph, torch.transpose(h_graph, 0, 1))
-        f_o_proximity = torch.sigmoid(h_graph_sim)
-        return f_o_proximity
 
     def weight_decay(self):
         #w_0 = self.graph_conv_net.fcl_0.weight.data
@@ -105,34 +91,6 @@ class RegionEncoder(nn.Module):
 
         return optimizer
 
-    def loss_graph(self, h_graph, pos_samples, neg_samples):
-        """
-
-        :param graph_logits:
-        :param gamma:
-        :return:
-        """
-        n = h_graph.shape[0]
-        h_dim = h_graph.shape[1]
-        n_neg_samples = neg_samples.shape[1]
-
-        h_graph_expanded = h_graph.unsqueeze(1)
-        h_graph_expanded = h_graph_expanded.expand(n, n_neg_samples, h_dim)
-
-        neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=-1)
-        neg_dot_sig = torch.sigmoid(neg_dot)
-        l_neg_samples_ind = torch.log(neg_dot_sig)
-        l_neg_samples_total = torch.sum(l_neg_samples_ind, dim=-1)
-
-
-        dot = torch.sum(torch.mul(h_graph, pos_samples), dim=-1)
-        l_pos_samples = torch.log(dot)
-
-        total_loss = l_pos_samples + l_neg_samples_total
-        l_graph = torch.mean(total_loss)
-
-        # to minimize negative log likelihood: multiply by -1
-        return -l_graph
 
     def loss_disc(self, eta, eta_logits):
         loss_disc = self.bce_logits(eta_logits, eta)
@@ -144,20 +102,6 @@ class RegionEncoder(nn.Module):
         mse = torch.mean(torch.pow(err, 2))
 
         return mse
-
-    def loss_weighted_edges(self, learned_graph_prox, empirical_graph_prox):
-        """
-        Compute KL Divergence between learned graph proximity and empircal proximity
-        of weighted edges
-        :param learned_graph_prox:
-        :param empirical_graph_prox:
-        :return:
-        """
-        loss_ind = empirical_graph_prox * torch.log(learned_graph_prox)
-        loss_ind = torch.triu(loss_ind)
-        loss = - torch.sum(loss_ind)
-
-        return loss
 
     def loss_function(self, L_graph, L_edge_weights, L_disc, L_ae):
         """
@@ -178,51 +122,6 @@ class RegionEncoder(nn.Module):
 
         return L
 
-    def __preprocess_adj(self, A):
-        n = A.shape[0]
-
-        return A + np.eye(n)
-
-
-    def __preprocess_degree(self, D):
-        # get D^-1/2
-        D = np.linalg.inv(D)
-        D = np.power(D, .5)
-
-        return D
-
-    def __gen_pos_samples_gcn(self, regions, idx_map, h_graph, batch_size):
-        pos_sample_map = dict()
-        n_h_dims = h_graph.shape[1]
-        pos_samples = torch.zeros((batch_size, n_h_dims), dtype=torch.float)
-
-        for id, mtx_idx in idx_map.items():
-            region_i = regions[id]
-            pos_sample = np.random.choice(list(region_i.adjacent.keys()))
-            pos_sample_map[mtx_idx] = idx_map[pos_sample]
-            pos_samples[mtx_idx, :] = h_graph[idx_map[pos_sample], :]
-
-        return pos_samples
-
-    def __gen_neg_samples_gcn(self, n_neg_samples, adj_mtx, h_graph, idx_map, batch_size):
-
-
-        neg_sample_map = dict()
-        n_h_dims = h_graph.shape[1]
-        neg_samples = torch.zeros((batch_size, n_neg_samples, n_h_dims), dtype=torch.float)
-
-        for id, mtx_idx in idx_map.items():
-            neg_sample_map[mtx_idx] = list()
-            for k in range(n_neg_samples):
-                get_neg_sample = True
-                while get_neg_sample:
-                    neg_sample_idx = np.random.randint(0, batch_size)
-                    if adj_mtx[mtx_idx, neg_sample_idx] == 0:
-                        get_neg_sample = False
-                        neg_sample_map[mtx_idx].append(neg_sample_idx)
-                        neg_samples[mtx_idx, k, :] = h_graph[neg_sample_idx, :]
-
-        return neg_samples
 
     def __gen_eta(self, pos_tens, neg_tens):
 
@@ -310,8 +209,8 @@ class RegionEncoder(nn.Module):
         W = region_grid.weighted_mtx
         X = region_grid.feature_matrix
         # preprocess step for graph matrices
-        A_hat = self.__preprocess_adj(A)
-        D_hat = self.__preprocess_degree(D)
+        A_hat = GCN.preprocess_adj(A)
+        D_hat = GCN.preprocess_degree(D)
 
         # Cast matrices to torch.tensor
         A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
@@ -333,17 +232,17 @@ class RegionEncoder(nn.Module):
             h_image_neg = mod.forward(X=X, A=A_hat, D=D_hat, img_tensor=img_tensor)
 
             # generate positive samples for gcn
-            gcn_pos_samples = self.__gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
+            gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
             # generate negative samples for gcn
-            gcn_neg_samples = self.__gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph, region_mtx_map, batch_size)
+            gcn_neg_samples = GCN.gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph, region_mtx_map, batch_size)
             # get labels for discriminator
             eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
             # Add noise to images
             img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25)
 
             # Get different objectives
-            L_graph = self.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
-            L_edge_weights = self.loss_weighted_edges(graph_proximity, W)
+            L_graph = GCN.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples)
+            L_edge_weights = GCN.loss_weighted_edges(graph_proximity, W)
             L_disc = self.loss_disc(eta, logits)
             L_ae = self.loss_ae(img_noisey, image_hat)
 
