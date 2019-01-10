@@ -99,7 +99,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # DeepWalk Model
 
-    X = deepwalk_features.drop('priceSqft', axis=1).values
+    X = deepwalk_features.drop(['priceSqft','lat', 'lon'], axis=1).values
     y = deepwalk_features['priceSqft'].values
 
     trn = xgboost.DMatrix(X[train_idx, :], label=y[train_idx])
@@ -116,7 +116,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # Embedding model
 
-    X = re_features.drop('priceSqft', axis=1).values
+    X = re_features.drop(['priceSqft','lat', 'lon'], axis=1).values
     y = re_features['priceSqft'].values
 
     trn = xgboost.DMatrix(X[train_idx, :], label=y[train_idx])

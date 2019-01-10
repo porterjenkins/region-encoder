@@ -326,21 +326,30 @@ if __name__ == "__main__":
     region_grid.load_weighted_mtx()
     n_nodes = len(region_grid.regions)
 
+    # hyperparameters
+    n_nodal_features = 552
+    h_dim_graph = 64
+    lambda_ae = .5
+    lambda_edge = .1
+    lambda_g = 0.0
+    neg_samples_gcn = 25
+    epochs = 50
+    learning_rate = .01
+
+
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
 
-        mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
-                            lambda_g=0.05, neg_samples_gcn=25)
-        mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
-
-    else:
-
-        mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
-                            lambda_g=0.05, neg_samples_gcn=25)
-        mod.run_train_job(region_grid, epochs=50, lr=.01, tol_order=3)
-
+    mod = RegionEncoder(n_nodes=n_nodes,
+                        n_nodal_features=n_nodal_features,
+                        h_dim_graph=h_dim_graph,
+                        lambda_ae=lambda_ae,
+                        lambda_edge=lambda_edge,
+                        lambda_g=lambda_g,
+                        neg_samples_gcn=neg_samples_gcn)
+    mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
     mod.write_embeddings(c['embedding_file'])
     mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False)
