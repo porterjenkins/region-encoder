@@ -46,6 +46,21 @@ class GCN(nn.Module):
         return optimizer
 
     @staticmethod
+    def get_weighted_proximity(h_graph):
+        """
+        compute sigmoid of similarity matrix. e.g.,:
+            1/(1 + exp(-X))
+                where X = HH'
+                and H = is an nxp matrix of node represntations
+                (each row i is an embedding vector for node i)
+        :param h_graph:
+        :return:
+        """
+        h_graph_sim = torch.mm(h_graph, torch.transpose(h_graph, 0, 1))
+        f_o_proximity = torch.sigmoid(h_graph_sim)
+        return f_o_proximity
+
+    @staticmethod
     def preprocess_adj(A):
         n = A.shape[0]
 
@@ -116,12 +131,33 @@ class GCN(nn.Module):
         # to minimize negative log likelihood: multiply by -1
         return -l_graph
 
-    def run_train_job(self, region_grid, n_epoch, n_neg_samples=15, learning_rate=.01):
+    @staticmethod
+    def loss_weighted_edges(learned_graph_prox, empirical_graph_prox):
+        """
+        Compute KL Divergence between learned graph proximity and empircal proximity
+        of weighted edges
+        :param learned_graph_prox:
+        :param empirical_graph_prox:
+        :return:
+        """
+        loss_ind = empirical_graph_prox * torch.log(learned_graph_prox)
+        loss_ind = torch.triu(loss_ind)
+        loss = - torch.sum(loss_ind)
+        return loss
+
+    @staticmethod
+    def loss_main(loss_sg, loss_we, penalty=(1.0, 1.0)):
+
+
+        return penalty[0] * loss_sg + penalty[1]*loss_we
+
+    def run_train_job(self, region_grid, n_epoch, n_neg_samples=15, learning_rate=.01, penalty=(1.0, 1.0)):
         optimizer = self.get_optimizer(learning_rate)
 
         A = region_grid.adj_matrix
         D = region_grid.degree_matrix
         X = region_grid.feature_matrix
+        W = region_grid.weighted_mtx
         # preprocess step for graph matrices
         A_hat = GCN.preprocess_adj(A)
         D_hat = GCN.preprocess_degree(D)
@@ -133,6 +169,7 @@ class GCN(nn.Module):
         A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
         D_hat = torch.from_numpy(D_hat).type(torch.FloatTensor)
         X = torch.from_numpy(X).type(torch.FloatTensor)
+        W = torch.from_numpy(W).type(torch.FloatTensor)
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
 
@@ -140,14 +177,19 @@ class GCN(nn.Module):
             optimizer.zero_grad()
 
 
-            # forward + backward + optimize
+            # forward propogation step
             H = self.forward(X=X, A=A_hat, D=D_hat)
+            graph_proximity = GCN.get_weighted_proximity(H)
+
             # generate positive samples for gcn
             gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, H, batch_size)
             # generate negative samples for gcn
             gcn_neg_samples = GCN.gen_neg_samples_gcn(n_neg_samples, A, H, region_mtx_map, batch_size)
             # compute loss
-            loss = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples)
+            loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples)
+            loss_edge_weights = GCN.loss_weighted_edges(graph_proximity, W)
+
+            loss = GCN.loss_main(loss_skip_gram, loss_edge_weights, penalty)
 
             loss.backward()
             optimizer.step()
@@ -166,4 +208,4 @@ if __name__ == "__main__":
     n_nodes = len(region_grid.regions)
     gcn = GCN(n_nodes=n_nodes, n_features=552, h_dim_size=16)
 
-    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.01)
+    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.01, penalty=(1, .5))
