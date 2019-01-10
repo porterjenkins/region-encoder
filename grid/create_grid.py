@@ -32,7 +32,7 @@ class RegionGrid:
         As the vertical starting point for longitude, the Prime Meridian is numbered 0 degrees longitude
     """
 
-    def __init__(self, config, img_dims=(640, 640), load_imgs=False, sample_prob=None):
+    def __init__(self, config, sample_prob=None):
 
         poi = self.get_poi_pickle(config['poi_file'])
         poi_rect, self.categories = RegionGrid.handle_poi(poi)

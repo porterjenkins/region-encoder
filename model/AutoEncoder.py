@@ -156,7 +156,7 @@ if __name__ == "__main__":
             plt.show()
 
     c = get_config()
-    region_grid = RegionGrid(config=c, load_imgs=True)
+    region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
     region_grid.img_tens_get_size()
 

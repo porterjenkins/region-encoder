@@ -268,7 +268,7 @@ class RegionEncoder(nn.Module):
             optimizer.zero_grad()
             # forward + backward + optimize
             logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg,\
-            h_image_neg = mod.forward(X=X, A=A_hat, D=D_hat, img_tensor=img_tensor)
+            h_image_neg = self.forward(X=X, A=A_hat, D=D_hat, img_tensor=img_tensor)
 
             # generate positive samples for gcn
             gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
@@ -318,7 +318,7 @@ class RegionEncoder(nn.Module):
 
 if __name__ == "__main__":
     c = get_config()
-    region_grid = RegionGrid(config=c, load_imgs=True)
+    region_grid = RegionGrid(config=c)
     n_nodes = len(region_grid.regions)
 
     mod = RegionEncoder(n_nodes=n_nodes, n_nodal_features=552, h_dim_graph=64, lambda_ae=.5, lambda_edge=.1,
