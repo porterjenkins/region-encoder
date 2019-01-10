@@ -8,6 +8,7 @@ import torch.optim as optim
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
+from grid.create_grid import RegionGrid
 
 
 class ViewEncode(nn.Module):
@@ -82,13 +83,9 @@ class AutoEncoder(nn.Module):
         return x
 
     def get_optimizer(self):
-        criterion = nn.MSELoss()
-        # TODO: Try BCE loss?
-        # criterion = torch.nn.BCELoss()
         optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
 
-        return criterion, optimizer
-
+        return optimizer
     @staticmethod
     def add_noise(image_tensor, noise_factor=.5, cuda=False):
 
@@ -103,7 +100,15 @@ class AutoEncoder(nn.Module):
 
         return noised_image
 
+    @staticmethod
+    def loss_mse(img_input, img_reconstruction):
+        err = img_input - img_reconstruction
+        mse = torch.mean(torch.pow(err, 2))
+
+        return mse
+
     def run_train_job(self, n_epoch, img_tensor):
+        optimizer = self.get_optimizer()
         if self.cuda:
             img_tensor = img_tensor.cuda()
         loss_function, optimizer = self.get_optimizer()
@@ -137,11 +142,10 @@ if __name__ == "__main__":
     import numpy as np
     from grid.create_grid import RegionGrid
 
-
     # functions to show an image
 
     def imshow(img, save=False, fname=None):
-        img = img / 2 + 0.5  # unnormalize
+        img = img / 2 + 0.5     # unnormalize
         npimg = img.detach().numpy()
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
         if save:
@@ -149,14 +153,12 @@ if __name__ == "__main__":
         else:
             plt.show()
 
-
     c = get_config()
-    file = open(c["poi_file"], 'rb')
-    img_dir = c['path_to_image_dir']
-    region_grid = RegionGrid(c)
+    region_grid = RegionGrid(config=c)
+    region_grid.load_img_data(std_img=True)
     region_grid.img_tens_get_size()
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
 
-    auto_encoder = AutoEncoder(img_dims=(640, 640), h_dim_size=32)
+    auto_encoder = AutoEncoder(img_dims=(640,640), h_dim_size=32)
     auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)

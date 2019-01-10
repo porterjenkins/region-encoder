@@ -72,7 +72,8 @@ class SimilarityModel(object):
 if __name__ == "__main__":
 
     c = get_config()
-    region_grid = RegionGrid(config=c, load_imgs=False)
+    region_grid = RegionGrid(config=c)
+    region_grid.load_weighted_mtx()
     region_grid.load_housing_data(c['housing_data_file'])
 
     y_house = region_grid.get_target_var("house_price")
@@ -137,9 +138,9 @@ if __name__ == "__main__":
 
 
     ## Post hoc analysis of neighborhoods
-    print("---- KNN Analysis: Euclidean -----")
-    get_knn(D_euclidean, 5, region_grid.idx_coor_map)
-    print("---- KNN Analysis: DeepWalk -----")
-    get_knn(deepwalk, 5, region_grid.idx_coor_map)
-    print("---- KNN Analysis: Proposed -----")
-    get_knn(re_embed, 5, region_grid.idx_coor_map)
+    #print("---- KNN Analysis: Euclidean -----")
+    #get_knn(D_euclidean, 5, region_grid.idx_coor_map)
+    #print("---- KNN Analysis: DeepWalk -----")
+    #get_knn(deepwalk, 5, region_grid.idx_coor_map)
+    #print("---- KNN Analysis: Proposed -----")
+    #get_knn(re_embed, 5, region_grid.idx_coor_map)
