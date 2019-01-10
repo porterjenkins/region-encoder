@@ -21,7 +21,7 @@ class RegionEncoder(nn.Module):
     Multi-Modal Region Encoding (MMRE)
     """
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
-                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=.01, img_dims=(640,640),
+                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=1e-4, img_dims=(640,640),
                  neg_samples_disc=None, neg_samples_gcn = 10):
         super(RegionEncoder, self).__init__()
         # Model Layers
@@ -79,15 +79,10 @@ class RegionEncoder(nn.Module):
 
 
     def weight_decay(self):
-        #w_0 = self.graph_conv_net.fcl_0.weight.data
-        #tmp = torch.norm(w_0, p='fro')
-
         reg = 0
-
 
         for p in self.parameters():
             layer = p.data
-
             reg += self.lambda_wd * torch.norm(layer)
 
         return reg
@@ -103,7 +98,7 @@ class RegionEncoder(nn.Module):
         return loss_disc
 
 
-    def loss_function(self, L_graph, L_edge_weights, L_disc, L_ae):
+    def loss_function(self, L_graph, L_edge_weights, L_disc, L_ae, reg):
         """
         Global loss function for model. Loss has the following components:
             - Reconstruction of spatial graph
@@ -114,11 +109,11 @@ class RegionEncoder(nn.Module):
         :param L_edge_weights:
         :param L_disc:
         :param L_ae:
+        :param reg: Regularization term
         :return:
         """
-        #regularizer = self.weight_decay()
 
-        L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights
+        L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights + reg
 
         return L
 
@@ -149,9 +144,8 @@ class RegionEncoder(nn.Module):
                 new_idx = np.random.randint(0, self.n_nodes)
                 neg_idx_graph[i] = new_idx
 
-        h_graph_neg = h_graph[neg_idx_graph,:]
+        h_graph_neg = h_graph[neg_idx_graph, :]
         h_img_neg = h_image[neg_idx_image, :]
-
 
         return h_graph_neg, h_img_neg
 
@@ -291,7 +285,9 @@ class RegionEncoder(nn.Module):
             L_disc = self.loss_disc(eta, logits)
             L_ae = AutoEncoder.loss_mse(img_noisey, image_hat)
 
-            loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae)
+            # regularize weights
+            weight_decay = self.weight_decay()
+            loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae, weight_decay)
             loss.backward()
             optimizer.step()
 
@@ -334,7 +330,7 @@ if __name__ == "__main__":
     lambda_g = 0.0
     neg_samples_gcn = 25
     epochs = 50
-    learning_rate = .01
+    learning_rate = .1
 
 
     if len(sys.argv) > 1:

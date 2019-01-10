@@ -223,7 +223,7 @@ class GCN(nn.Module):
 if __name__ == "__main__":
     c = get_config()
     region_grid = RegionGrid(config=c)
+    region_grid.load_weighted_mtx()
     n_nodes = len(region_grid.regions)
-    gcn = GCN(n_nodes=n_nodes, n_features=552, h_dim_size=16)
-
-    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.01, penalty=(1, 1))
+    gcn = GCN(n_nodes=n_nodes, n_features=552, h_dim_size=32)
+    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.1, penalty=(1, 1))
