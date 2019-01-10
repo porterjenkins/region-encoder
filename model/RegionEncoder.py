@@ -25,7 +25,7 @@ class RegionEncoder(nn.Module):
                  neg_samples_disc=None, neg_samples_gcn = 10):
         super(RegionEncoder, self).__init__()
         # Model Layers
-        self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph, n_classes=4)
+        self.graph_conv_net = GCN(n_nodes=n_nodes, n_features=n_nodal_features, h_dim_size=h_dim_graph)
         self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img, img_dims=img_dims)
         self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_disc)
 

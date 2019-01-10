@@ -46,7 +46,7 @@ n_epochs = 250
 n_folds = 5
 
 
-features = zillow[['numBedrooms', 'numBathrooms', 'sqft', 'region_coor', 'priceSqft']]
+features = zillow[['numBedrooms', 'numBathrooms', 'sqft', 'region_coor', 'priceSqft','lat', 'lon']]
 
 re_embed = region_grid.load_embedding(c['embedding_file'])
 re_df = pd.DataFrame(re_embed, index=region_grid.idx_coor_map.values())
@@ -76,7 +76,7 @@ fold_cntr = 0
 for train_idx, test_idx in k_fold.split(train_ind_arr):
     print("Beginning Fold: {}".format(fold_cntr+1))
     # Naive Model
-    X = features[['numBedrooms', 'numBathrooms', 'sqft']].values
+    X = features[['numBedrooms', 'numBathrooms', 'sqft', 'lat', 'lon']].values
     y = features['priceSqft'].values
 
 
