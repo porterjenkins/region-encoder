@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from model.get_karate_data import *
 import torch.optim as optim
 import sys
 import os

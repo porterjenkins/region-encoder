@@ -7,7 +7,6 @@ import torch.optim as optim
 from model.AutoEncoder import AutoEncoder
 from model.GraphConvNet import GCN
 from model.discriminator import DiscriminatorMLP
-from model.get_karate_data import *
 from config import get_config
 
 from grid.create_grid import RegionGrid
