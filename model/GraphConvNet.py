@@ -89,26 +89,35 @@ class GCN(nn.Module):
         return pos_samples
 
     @staticmethod
-    def gen_neg_samples_gcn(n_neg_samples, adj_mtx, h_graph, idx_map, batch_size):
+    def get_sample_distribution(D):
+        D_diag = D.diagonal()
+        probs = D_diag / D_diag.sum()
+        return probs
+
+    @staticmethod
+    def gen_neg_samples_gcn(n_neg_samples, adj_mtx, h_graph, idx_map, batch_size, probs):
         neg_sample_map = dict()
         n_h_dims = h_graph.shape[1]
         neg_samples = torch.zeros((batch_size, n_neg_samples, n_h_dims), dtype=torch.float)
+        neg_sample_probs = torch.zeros((batch_size, n_neg_samples), dtype=torch.float)
 
         for id, mtx_idx in idx_map.items():
             neg_sample_map[mtx_idx] = list()
             for k in range(n_neg_samples):
                 get_neg_sample = True
                 while get_neg_sample:
-                    neg_sample_idx = np.random.randint(0, batch_size)
+                    neg_sample_idx = np.random.choice(np.arange(0, batch_size), p=probs)
                     if adj_mtx[mtx_idx, neg_sample_idx] == 0:
+                        # sample node (index) is a true negative sample, then keep
                         get_neg_sample = False
                         neg_sample_map[mtx_idx].append(neg_sample_idx)
                         neg_samples[mtx_idx, k, :] = h_graph[neg_sample_idx, :]
+                        neg_sample_probs[mtx_idx, k] = probs[neg_sample_idx]
 
-        return neg_samples
+        return neg_samples, neg_sample_probs
 
     @staticmethod
-    def loss_graph(h_graph, pos_samples, neg_samples):
+    def loss_graph(h_graph, pos_samples, neg_samples, neg_probs):
         n = h_graph.shape[0]
         h_dim = h_graph.shape[1]
         n_neg_samples = neg_samples.shape[1]
@@ -118,12 +127,15 @@ class GCN(nn.Module):
 
         neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=-1)
         neg_dot_sig = torch.sigmoid(neg_dot)
+        #  Weight negative sample loss contribution by probability
         l_neg_samples_ind = torch.log(neg_dot_sig)
-        l_neg_samples_total = torch.sum(l_neg_samples_ind, dim=-1)
+        l_neg_samples_ind_mean = torch.mul(l_neg_samples_ind, neg_probs)
+        l_neg_samples_total = torch.sum(l_neg_samples_ind_mean, dim=-1)
 
 
         dot = torch.sum(torch.mul(h_graph, pos_samples), dim=-1)
-        l_pos_samples = torch.log(dot)
+        dot_sig = torch.sigmoid(dot)
+        l_pos_samples = torch.log(dot_sig)
 
         total_loss = l_pos_samples + l_neg_samples_total
         l_graph = torch.mean(total_loss)
@@ -183,9 +195,10 @@ class GCN(nn.Module):
             # generate positive samples for gcn
             gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, H, batch_size)
             # generate negative samples for gcn
-            gcn_neg_samples = GCN.gen_neg_samples_gcn(n_neg_samples, A, H, region_mtx_map, batch_size)
+            neg_probs = GCN.get_sample_distribution(D)
+            gcn_neg_samples, neg_sample_probs = GCN.gen_neg_samples_gcn(n_neg_samples, A, H, region_mtx_map, batch_size, neg_probs)
             # compute loss
-            loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples)
+            loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples, neg_sample_probs)
             loss_edge_weights = GCN.loss_weighted_edges(graph_proximity, W)
 
             loss = GCN.loss_main(loss_skip_gram, loss_edge_weights, penalty)

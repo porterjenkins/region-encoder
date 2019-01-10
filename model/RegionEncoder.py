@@ -8,7 +8,7 @@ from model.AutoEncoder import AutoEncoder
 from model.GraphConvNet import GCN
 from model.discriminator import DiscriminatorMLP
 from config import get_config
-
+import numpy as np
 
 from grid.create_grid import RegionGrid
 
