@@ -76,6 +76,7 @@ class GCN(nn.Module):
 
     @staticmethod
     def gen_pos_samples_gcn(regions, idx_map, h_graph, batch_size):
+        # TODO: add multiple positive sampling functionality
         pos_sample_map = dict()
         n_h_dims = h_graph.shape[1]
         pos_samples = torch.zeros((batch_size, n_h_dims), dtype=torch.float)

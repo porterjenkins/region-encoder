@@ -327,7 +327,7 @@ if __name__ == "__main__":
     h_dim_graph = 64
     lambda_ae = .5
     lambda_edge = .1
-    lambda_g = 0.0
+    lambda_g = 0.1
     neg_samples_gcn = 25
     epochs = 50
     learning_rate = .1
