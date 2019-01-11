@@ -20,6 +20,8 @@ W = region_grid.create_flow_matrix(c['raw_flow_file'])
 with open(c['flow_mtx_file'], 'wb') as f:
     pickle.dump(W, f)
 
+region_grid.load_weighted_mtx()
+region_grid.load_img_data()
 
 # Run Train job
 n_nodes = len(region_grid.regions)
