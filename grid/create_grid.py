@@ -237,7 +237,7 @@ class RegionGrid:
         # adjacency matrix
         v = len(regions)
         # all zeroes
-        matrix = numpy.zeros((v, v))
+        matrix = numpy.zeros((v, v), dtype=numpy.int64)
         # mapping of region coordinate to index
         coor_index_mapping = dict()
         # for regions, append touching regions

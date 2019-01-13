@@ -90,9 +90,28 @@ class GCN(nn.Module):
         return pos_samples
 
     @staticmethod
-    def get_sample_distribution(D):
+    def gen_pos_samples_gcn2(n_pos_samples, regions, h_graph, idx_map, batch_size):
+
+        pos_sample_map = dict()
+        n_h_dims = h_graph.shape[1]
+        pos_samples = torch.zeros((batch_size, n_pos_samples, n_h_dims), dtype=torch.float)
+
+        for id, mtx_idx in idx_map.items():
+            region_i = regions[id]
+            pos_sample = np.random.choice(list(region_i.adjacent.keys()), replace=True, size=n_pos_samples)
+            for k in range(n_pos_samples):
+
+                pos_sample_map[mtx_idx] = idx_map[pos_sample[k]]
+                pos_samples[mtx_idx, k, :] = h_graph[idx_map[pos_sample[k]], :]
+
+        return pos_samples
+
+    @staticmethod
+    def get_neg_sample_distribution(D, adj_list):
         D_diag = D.diagonal()
-        probs = D_diag / D_diag.sum()
+        no_adj_list = np.invert(adj_list) + 2
+        probs = np.multiply(D_diag, no_adj_list)
+        probs = probs / probs.sum()
         return probs
 
     @staticmethod
@@ -118,12 +137,38 @@ class GCN(nn.Module):
         return neg_samples, neg_sample_probs
 
     @staticmethod
+    def gen_skip_gram_samples(context_size, n_neg_samples, h_graph, batch_size, idx_map, regions, adj_mtx, degree):
+        # generate context (positive samples) and negative sampples for each sample
+        n_h_dims = h_graph.shape[1]
+        pos_samples = torch.zeros((batch_size, context_size, n_neg_samples, n_h_dims), dtype=torch.float)
+        neg_samples = torch.zeros((batch_size, context_size, n_neg_samples, n_h_dims), dtype=torch.float)
+
+        for id, mtx_idx in idx_map.items():
+
+            # create context by sampling adjacent nodes WITH REPLACEMENT
+            adj_nodes = list(regions[id].adjacent.keys())
+            context = np.random.choice(adj_nodes, replace=True, size=context_size)
+            for c in range(context_size):
+                probs = GCN.get_neg_sample_distribution(degree, adj_mtx[mtx_idx, :])
+                neg_samples_idx = np.random.choice(np.arange(0, batch_size), p=probs, size=n_neg_samples)
+
+                for k in range(n_neg_samples):
+                    # insert embedding vector to tensor via id lookup
+                    pos_samples[mtx_idx, c, k, :] = h_graph[idx_map[context[c]], :]
+                    neg_samples[mtx_idx, c, k, :] = h_graph[neg_samples_idx[k], :]
+
+
+        return pos_samples, neg_samples, probs
+
+    @staticmethod
     def loss_graph(h_graph, pos_samples, neg_samples, neg_probs):
+        # TODO: Incoporate multiple positive samples
         if torch.cuda.is_available():
             h_graph = h_graph.cuda()
             pos_samples = pos_samples.cuda()
             neg_samples = neg_samples.cuda()
             neg_probs = neg_probs.cuda()
+
         n = h_graph.shape[0]
         h_dim = h_graph.shape[1]
         n_neg_samples = neg_samples.shape[1]
@@ -169,7 +214,7 @@ class GCN(nn.Module):
 
     # ideally  this should be outside the module
     # we should be passing all the parameters it needs then run it as opposed to half in and half out
-    def run_train_job(self, region_grid, n_epoch, n_neg_samples=15, learning_rate=.01, penalty=(1.0, 1.0)):
+    def run_train_job(self, region_grid, n_epoch, n_neg_samples=15, n_pos_samples=4,learning_rate=.01, penalty=(1.0, 1.0)):
         optimizer = self.get_optimizer(learning_rate)
 
         A = region_grid.adj_matrix
@@ -204,14 +249,13 @@ class GCN(nn.Module):
 
             # forward propogation step
             H = self.forward(X=X)
-            # generate positive samples for gcn
-            gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, H, batch_size)
-            # generate negative samples for gcn
-            neg_probs = GCN.get_sample_distribution(D)
-            gcn_neg_samples, neg_sample_probs = GCN.gen_neg_samples_gcn(n_neg_samples, A, H, region_mtx_map, batch_size,
-                                                                        neg_probs)
+
+            # Generate context (positive samples) and negative samples for SkipGram Loss
+            gcn_pos_samples, gcn_neg_samples, neg_probs = GCN.gen_skip_gram_samples(n_pos_samples, n_neg_samples, H,
+                                                                                    batch_size, region_mtx_map,
+                                                                                    region_grid.regions, A, D)
             # compute skipgram loss
-            loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples, neg_sample_probs)
+            loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples, neg_probs)
 
             # compute first order proximity loss
             # get learned first-order proximity
@@ -243,4 +287,4 @@ if __name__ == "__main__":
     region_grid.load_weighted_mtx()
     n_nodes = len(region_grid.regions)
     gcn = GCN(n_features=552, h_dim_size=32)
-    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.1, penalty=(1, 1))
+    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.1, penalty=(1, 1), n_neg_samples=2, n_pos_samples=2)

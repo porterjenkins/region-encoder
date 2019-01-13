@@ -252,7 +252,7 @@ class RegionEncoder(nn.Module):
 
         batch_size = A.shape[0]
         print("Beginning training job: epochs: {}, batch size: {}, learning rate:{}".format(epochs, batch_size,
-                                                                                            learning_rate))
+                                                                                            lr))
 
         self.graph_conv_net.adj = torch.mm(D_hat, torch.mm(A_hat, D_hat))
         if self.use_cuda:

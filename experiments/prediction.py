@@ -60,6 +60,9 @@ re_df = pd.DataFrame(re_embed, index=region_grid.idx_coor_map.values())
 deepwalk = region_grid.load_embedding(c['deepwalk_file'])
 deepwalk_df = pd.DataFrame(deepwalk, index=region_grid.idx_coor_map.values())
 
+deepwalk_and_proposed = np.concatenate((deepwalk, re_embed),axis=1)
+deepwalk_and_proposed_df = pd.DataFrame(deepwalk_and_proposed, index=region_grid.idx_coor_map.values())
+
 
 re_features = pd.merge(features, re_df, left_on='region_coor', right_index=True, how='inner')
 re_features.drop('region_coor', axis=1, inplace=True)
@@ -68,13 +71,18 @@ print(re_features.shape)
 deepwalk_features = pd.merge(features, deepwalk_df, left_on='region_coor', right_index=True, how='inner')
 deepwalk_features.drop('region_coor', axis=1, inplace=True)
 
+deepwalk_and_proposed_features = pd.merge(features, deepwalk_and_proposed_df, left_on='region_coor',
+                                          right_index=True, how='inner')
+deepwalk_and_proposed_features.drop('region_coor', axis=1, inplace=True)
+
 print(deepwalk_features.shape)
 
-k_fold = KFold(n_splits=n_folds, shuffle=True)
+k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=1990)
 
 naive_err = np.zeros((n_folds, 2))
 deepwalk_err = np.zeros((n_folds, 2))
 embed_err = np.zeros((n_folds, 2))
+deepwalk_and_proposed_err = np.zeros((n_folds, 2))
 
 train_ind_arr = np.arange(deepwalk_features.shape[0])
 
@@ -130,6 +138,22 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     embed_err[fold_cntr, 0] = np.sqrt(mean_squared_error(y[test_idx], pred))
     embed_err[fold_cntr, 1] = mean_absolute_error(y[test_idx], pred)
 
+    # DeepWalk + Embedding Model
+    X = deepwalk_and_proposed_features.drop(['priceSqft', 'lat', 'lon'], axis=1).values
+    y = deepwalk_and_proposed_features['priceSqft'].values
+
+    trn = xgboost.DMatrix(X[train_idx, :], label=y[train_idx])
+    tst = xgboost.DMatrix(X[test_idx, :], label=y[test_idx])
+
+    eval_list = [(trn, 'train')]
+    model = xgboost.train(param, trn, n_epochs, verbose_eval=True, evals=eval_list)
+    pred = model.predict(tst)
+    rmse = np.sqrt(mean_squared_error(y[test_idx], pred))
+    deepwalk_and_proposed_err[fold_cntr, 0] = np.sqrt(mean_squared_error(y[test_idx], pred))
+    deepwalk_and_proposed_err[fold_cntr, 1] = mean_absolute_error(y[test_idx], pred)
+
+
+
     fold_cntr += 1
 
 naive_err_mean = np.mean(naive_err, axis=0)
@@ -140,6 +164,9 @@ embed_err_std = np.std(embed_err, axis=0)
 
 deepwalk_err_mean = np.mean(deepwalk_err, axis=0)
 deepwalk_err_std = np.std(deepwalk_err, axis=0)
+
+deepwalk_and_proposed_mean = np.mean(deepwalk_and_proposed_err, axis=0)
+deepwalk_and_proposed_std = np.std(deepwalk_and_proposed_err, axis=0)
 
 
 print("Naive Model:")
@@ -154,3 +181,8 @@ print('MAE: {:.4f} ({:.4f})'.format(deepwalk_err_mean[1], deepwalk_err_std[1]))
 print("Embedding Model:")
 print('RMSE: {:.4f} ({:.4f})'.format(embed_err_mean[0], embed_err_std[0]))
 print('MAE: {:.4f} ({:.4f})'.format(embed_err_mean[1], embed_err_std[1]))
+
+print("Deepwalk + Proposed Model:")
+print('RMSE: {:.4f} ({:.4f})'.format(deepwalk_and_proposed_mean[0], deepwalk_and_proposed_std[0]))
+print('MAE: {:.4f} ({:.4f})'.format(deepwalk_and_proposed_mean[1], deepwalk_and_proposed_std[1]))
+
