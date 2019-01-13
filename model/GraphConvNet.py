@@ -134,8 +134,7 @@ class GCN(nn.Module):
         return pos_samples, neg_samples, sampled_probs
 
     @staticmethod
-    def loss_graph(h_graph, pos_samples, neg_samples, neg_probs):
-        # TODO: Incoporate multiple positive samples
+    def skip_gram_loss(h_graph, pos_samples, neg_samples, neg_probs):
         if torch.cuda.is_available():
             h_graph = h_graph.cuda()
             pos_samples = pos_samples.cuda()
@@ -232,7 +231,7 @@ class GCN(nn.Module):
                                                                                     batch_size, region_mtx_map,
                                                                                     region_grid.regions, A, D)
             # compute skipgram loss
-            loss_skip_gram = GCN.loss_graph(H, gcn_pos_samples, gcn_neg_samples, neg_probs)
+            loss_skip_gram = GCN.skip_gram_loss(H, gcn_pos_samples, gcn_neg_samples, neg_probs)
 
             # compute first order proximity loss
             # get learned first-order proximity

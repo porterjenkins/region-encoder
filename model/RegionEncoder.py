@@ -23,7 +23,7 @@ class RegionEncoder(nn.Module):
 
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
                  lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=1e-4, img_dims=(640, 640),
-                 neg_samples_disc=None, neg_samples_gcn=10):
+                 neg_samples_disc=None, neg_samples_gcn=10, context_gcn=4):
         super(RegionEncoder, self).__init__()
         # Model Layers
         self.graph_conv_net = GCN(n_features=n_nodal_features, h_dim_size=h_dim_graph)
@@ -46,7 +46,9 @@ class RegionEncoder(nn.Module):
         else:
             self.neg_samples_disc = neg_samples_disc
         self.neg_samples_gcn = neg_samples_gcn
+        self.context_gcn = context_gcn
         self.n_nodes = n_nodes
+
 
         # Final model hidden state
         self.embedding = torch.Tensor
@@ -245,20 +247,18 @@ class RegionEncoder(nn.Module):
             logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg, \
             h_image_neg = self.forward(X=X, img_tensor=img_tensor)
 
-            # generate positive samples for gcn
-            gcn_pos_samples = GCN.gen_pos_samples_gcn(region_grid.regions, region_mtx_map, h_graph, batch_size)
-            # generate negative samples for gcn
-            neg_probs = GCN.get_sample_distribution(D)
-            gcn_neg_samples, neg_sample_probs = GCN.gen_neg_samples_gcn(self.neg_samples_gcn, A, h_graph,
-                                                                        region_mtx_map, batch_size,
-                                                                        neg_probs)
+            # Generate context (positive samples) and negative samples for SkipGram Loss
+            gcn_pos_samples, gcn_neg_samples, neg_probs = GCN.gen_skip_gram_samples(self.context_gcn, self.neg_samples_gcn,
+                                                                                    h_graph, batch_size, region_mtx_map,
+                                                                                    region_grid.regions, A, D)
+
             # get labels for discriminator
             eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
             # Add noise to images
             img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25, cuda=self.use_cuda)
 
             # Get different objectives
-            L_graph = GCN.loss_graph(h_graph, gcn_pos_samples, gcn_neg_samples, neg_sample_probs)
+            L_graph = GCN.skip_gram_loss(h_graph, gcn_pos_samples, gcn_neg_samples, neg_probs)
             emp_proximity = W / torch.sum(W)
             L_edge_weights = GCN.loss_weighted_edges(graph_proximity, emp_proximity)
             L_disc = self.loss_disc(eta, logits)

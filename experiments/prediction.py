@@ -58,6 +58,9 @@ features = zillow[['numBedrooms', 'numBathrooms', 'sqft', 'region_coor', 'priceS
 re_embed = load_embedding(c['embedding_file'])
 re_df = pd.DataFrame(re_embed, index=region_grid.idx_coor_map.values())
 
+nmf_embed = load_embedding(c['nmf_file'])
+nmf_df = pd.DataFrame(nmf_embed, index=region_grid.idx_coor_map.values())
+
 re_embed = load_embedding(c['embedding_file'])
 re_df = pd.DataFrame(re_embed, index=region_grid.idx_coor_map.values())
 
