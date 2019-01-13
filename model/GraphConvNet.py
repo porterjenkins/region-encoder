@@ -75,38 +75,6 @@ class GCN(nn.Module):
         return D
 
     @staticmethod
-    def gen_pos_samples_gcn(regions, idx_map, h_graph, batch_size):
-        # TODO: add multiple positive sampling functionality
-        pos_sample_map = dict()
-        n_h_dims = h_graph.shape[1]
-        pos_samples = torch.zeros((batch_size, n_h_dims), dtype=torch.float)
-
-        for id, mtx_idx in idx_map.items():
-            region_i = regions[id]
-            pos_sample = np.random.choice(list(region_i.adjacent.keys()))
-            pos_sample_map[mtx_idx] = idx_map[pos_sample]
-            pos_samples[mtx_idx, :] = h_graph[idx_map[pos_sample], :]
-
-        return pos_samples
-
-    @staticmethod
-    def gen_pos_samples_gcn2(n_pos_samples, regions, h_graph, idx_map, batch_size):
-
-        pos_sample_map = dict()
-        n_h_dims = h_graph.shape[1]
-        pos_samples = torch.zeros((batch_size, n_pos_samples, n_h_dims), dtype=torch.float)
-
-        for id, mtx_idx in idx_map.items():
-            region_i = regions[id]
-            pos_sample = np.random.choice(list(region_i.adjacent.keys()), replace=True, size=n_pos_samples)
-            for k in range(n_pos_samples):
-
-                pos_sample_map[mtx_idx] = idx_map[pos_sample[k]]
-                pos_samples[mtx_idx, k, :] = h_graph[idx_map[pos_sample[k]], :]
-
-        return pos_samples
-
-    @staticmethod
     def get_neg_sample_distribution(D, adj_list):
         D_diag = D.diagonal()
         no_adj_list = np.invert(adj_list) + 2
@@ -140,8 +108,9 @@ class GCN(nn.Module):
     def gen_skip_gram_samples(context_size, n_neg_samples, h_graph, batch_size, idx_map, regions, adj_mtx, degree):
         # generate context (positive samples) and negative sampples for each sample
         n_h_dims = h_graph.shape[1]
-        pos_samples = torch.zeros((batch_size, context_size, n_neg_samples, n_h_dims), dtype=torch.float)
+        pos_samples = torch.zeros((batch_size, context_size, n_h_dims), dtype=torch.float)
         neg_samples = torch.zeros((batch_size, context_size, n_neg_samples, n_h_dims), dtype=torch.float)
+        sampled_probs = torch.zeros((batch_size, context_size,  n_neg_samples), dtype=torch.float)
 
         for id, mtx_idx in idx_map.items():
 
@@ -149,16 +118,17 @@ class GCN(nn.Module):
             adj_nodes = list(regions[id].adjacent.keys())
             context = np.random.choice(adj_nodes, replace=True, size=context_size)
             for c in range(context_size):
+                pos_samples[mtx_idx, c, :] = h_graph[idx_map[context[c]], :]
+
                 probs = GCN.get_neg_sample_distribution(degree, adj_mtx[mtx_idx, :])
                 neg_samples_idx = np.random.choice(np.arange(0, batch_size), p=probs, size=n_neg_samples)
-
                 for k in range(n_neg_samples):
                     # insert embedding vector to tensor via id lookup
-                    pos_samples[mtx_idx, c, k, :] = h_graph[idx_map[context[c]], :]
+
                     neg_samples[mtx_idx, c, k, :] = h_graph[neg_samples_idx[k], :]
+                    sampled_probs[mtx_idx, c, k] = probs[neg_samples_idx[k]]
 
-
-        return pos_samples, neg_samples, probs
+        return pos_samples, neg_samples, sampled_probs
 
     @staticmethod
     def loss_graph(h_graph, pos_samples, neg_samples, neg_probs):
@@ -169,25 +139,29 @@ class GCN(nn.Module):
             neg_samples = neg_samples.cuda()
             neg_probs = neg_probs.cuda()
 
+
         n = h_graph.shape[0]
         h_dim = h_graph.shape[1]
-        n_neg_samples = neg_samples.shape[1]
+        n_neg_samples = neg_samples.shape[2]
+        n_pos_samples = pos_samples.shape[1]
 
-        h_graph_expanded = h_graph.unsqueeze(1)
-        h_graph_expanded = h_graph_expanded.expand(n, n_neg_samples, h_dim)
+        h_graph_expanded_3_dims = h_graph.unsqueeze(1)
+        h_graph_expanded_3_dims = h_graph_expanded_3_dims.expand(n, n_pos_samples, h_dim)
+        h_graph_expanded_4_dims = h_graph_expanded_3_dims.unsqueeze(2)
+        h_graph_expanded_4_dims = h_graph_expanded_4_dims.expand(n, n_pos_samples, n_neg_samples, h_dim)
 
-        neg_dot = -torch.sum(torch.mul(h_graph_expanded, neg_samples), dim=-1)
+        neg_dot = -torch.sum(torch.mul(h_graph_expanded_4_dims, neg_samples), dim=-1)
         neg_dot_sig = torch.sigmoid(neg_dot)
         #  Weight negative sample loss contribution by probability
         l_neg_samples_ind = torch.log(neg_dot_sig)
         l_neg_samples_ind_mean = torch.mul(l_neg_samples_ind, neg_probs)
         l_neg_samples_total = torch.sum(l_neg_samples_ind_mean, dim=-1)
 
-        dot = torch.sum(torch.mul(h_graph, pos_samples), dim=-1)
+        dot = torch.sum(torch.mul(h_graph_expanded_3_dims, pos_samples), dim=-1)
         dot_sig = torch.sigmoid(dot)
         l_pos_samples = torch.log(dot_sig)
 
-        total_loss = l_pos_samples + l_neg_samples_total
+        total_loss = torch.sum(l_pos_samples + l_neg_samples_total, dim=-1)
         l_graph = torch.mean(total_loss)
 
         # to minimize negative log likelihood: multiply by -1
@@ -287,4 +261,4 @@ if __name__ == "__main__":
     region_grid.load_weighted_mtx()
     n_nodes = len(region_grid.regions)
     gcn = GCN(n_features=552, h_dim_size=32)
-    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.1, penalty=(1, 1), n_neg_samples=2, n_pos_samples=2)
+    gcn.run_train_job(region_grid, n_epoch=100, learning_rate=.05, penalty=(1, 1), n_neg_samples=15, n_pos_samples=4)
