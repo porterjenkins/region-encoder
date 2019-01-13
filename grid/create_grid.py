@@ -532,37 +532,6 @@ class RegionGrid:
                         f.write(str(neighbor) + " ")
                 f.write("\n")
 
-    def load_embedding(self, fname):
-        """
-        Load embedding matrix from text file
-            - assumes first row details the dimensions of the matrix (e.g., 2500 x 64)
-            - assumes that first element of each row is an int denoting the nod index
-            - read data, put into dataframe, and sort by index
-        :param fname: str
-        :return: (np.array) Sorted 2-d array of embedding vectors
-        """
-        deepwalk_features = list()
-        idx = list()
-
-        with open(fname, 'rb') as f:
-            cntr = 0
-            for line in f:
-                if cntr > 0:
-                    row = line.decode('utf-8').split(" ")
-                    row_float = []
-                    for i, element in enumerate(row):
-                        # skip 0th element - tract id
-                        if i == 0:
-                            idx.append(int(element))
-                        else:
-                            row_float.append(float(element))
-                    deepwalk_features.append(row_float)
-
-                cntr += 1
-
-        feature_mtx = pandas.DataFrame(deepwalk_features, index=idx)
-        feature_mtx.sort_index(inplace=True)
-        return feature_mtx.values
 
 
 class Region:

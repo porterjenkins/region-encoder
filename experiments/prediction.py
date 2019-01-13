@@ -8,6 +8,7 @@ from grid.create_grid import RegionGrid
 import xgboost
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import KFold
+from model.utils import load_embedding
 
 if len(sys.argv) > 1:
     n_epochs = int(sys.argv[1])
@@ -54,15 +55,17 @@ param = {
 
 features = zillow[['numBedrooms', 'numBathrooms', 'sqft', 'region_coor', 'priceSqft','lat', 'lon']]
 
-re_embed = region_grid.load_embedding(c['embedding_file'])
+re_embed = load_embedding(c['embedding_file'])
 re_df = pd.DataFrame(re_embed, index=region_grid.idx_coor_map.values())
 
-deepwalk = region_grid.load_embedding(c['deepwalk_file'])
+re_embed = load_embedding(c['embedding_file'])
+re_df = pd.DataFrame(re_embed, index=region_grid.idx_coor_map.values())
+
+deepwalk = load_embedding(c['deepwalk_file'])
 deepwalk_df = pd.DataFrame(deepwalk, index=region_grid.idx_coor_map.values())
 
 deepwalk_and_proposed = np.concatenate((deepwalk, re_embed),axis=1)
 deepwalk_and_proposed_df = pd.DataFrame(deepwalk_and_proposed, index=region_grid.idx_coor_map.values())
-
 
 re_features = pd.merge(features, re_df, left_on='region_coor', right_index=True, how='inner')
 re_features.drop('region_coor', axis=1, inplace=True)
