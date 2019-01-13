@@ -12,6 +12,7 @@ from config import get_config
 import numpy as np
 import matplotlib.pyplot as plt
 from grid.create_grid import RegionGrid
+from model.utils import write_embeddings
 
 
 class RegionEncoder(nn.Module):
@@ -145,30 +146,6 @@ class RegionEncoder(nn.Module):
         h_img_neg = h_image[neg_idx_image, :]
 
         return h_graph_neg, h_img_neg
-
-    def write_embeddings(self, fname):
-
-        arr = self.embedding.data.numpy()
-        h_dim = arr.shape[1]
-
-        with open(fname, 'w') as f:
-            f.write("{} {} \n".format(self.n_nodes, h_dim))
-
-            # for cntr, embedding_vector in enumerate(arr):
-            for region_idx in range(self.n_nodes):
-                embedding_vector = arr[region_idx, :]
-                f.write("{} ".format(region_idx))
-
-                cntr = 0
-                for element in embedding_vector:
-                    if cntr == (h_dim - 1):
-                        f.write("{}".format(element))
-                    else:
-                        f.write("{} ".format(element))
-
-                    cntr += 1
-
-                f.write("\n")
 
     def plt_learning_curve(self, fname=None, log_scale=True, plt_all=True):
         x = np.arange(1, len(self.loss_seq) + 1)
@@ -345,5 +322,5 @@ if __name__ == "__main__":
                         neg_samples_gcn=neg_samples_gcn)
     mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
-    mod.write_embeddings(c['embedding_file'])
+    write_embeddings(arr=mod.embedding.data.numpy(), n_nodes=n_nodes, fname=c['embedding_file'])
     mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False)
