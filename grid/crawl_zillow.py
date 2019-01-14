@@ -135,7 +135,8 @@ def main(file_name, list_zip, n_page=20):
 
     list_price = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 5000000]
     
-    array_data_head = ['zpid', 'street', 'city', 'state', 'zipcode',  'price', 'sold', 'soldTime', 'priceSqft', 'latitude', 'longitude', 'numBedrooms', 'numBathrooms', 'sqft']
+    array_data_head = ['zpid', 'street', 'city', 'state', 'zipcode',  'price', 'sold', 'soldTime', 'priceSqft',
+                       'latitude', 'longitude', 'numBedrooms', 'numBathrooms', 'sqft']
 #    array_data_head = ['zpid', 'soldTime', 'lat', 'lon', 'priceSqft']
     array_data = []
     for z in list_zip:
@@ -150,10 +151,14 @@ def main(file_name, list_zip, n_page=20):
             for page in range(n_page):
                 
                 print ('page: '+str(page))
-                
-                list_item = crawl(z, price_range, page)
-                time.sleep(5)
 
+                try:
+                    list_item = crawl(z, price_range, page)
+                except ValueError as err:
+                    print(err)
+                    continue
+                
+                time.sleep(5)
                 if len(list_item) == 0:
                     break
                 
@@ -226,7 +231,6 @@ if __name__ == "__main__":
                         10010, 10016, 10017, 10022, 10012, 10013, 10014, 10004, 10005, 10006, 10007, 10038, 10280,
                         10002, 10003, 10009, 10021, 10028, 10044, 10065, 10075, 10128, 10023, 10024, 10025,
                         10031, 10032, 10033, 10034, 10040]
-            list_zip = [list_zip[0]]
 
         else:
             raise NotImplementedError("Input arg must be in {'chicago', 'nyc'}")
