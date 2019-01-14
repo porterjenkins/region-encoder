@@ -21,14 +21,14 @@ class RegionEncoder(nn.Module):
     Multi-Modal Region Encoding (MMRE)
     """
 
-    def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_disc=32,
+    def __init__(self, n_nodes, n_nodal_features, h_dim_graph=4, h_dim_img=32, h_dim_size=32,
                  lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=1e-4, img_dims=(640, 640),
                  neg_samples_disc=None, neg_samples_gcn=10, context_gcn=4):
         super(RegionEncoder, self).__init__()
         # Model Layers
         self.graph_conv_net = GCN(n_features=n_nodal_features, h_dim_size=h_dim_graph)
         self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img, img_dims=img_dims)
-        self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_disc)
+        self.discriminator = DiscriminatorMLP(x_features=h_dim_graph, z_features=h_dim_img, h_dim_size=h_dim_size)
 
         # Model Hyperparams
         self.lambda_ae = lambda_ae
@@ -308,6 +308,7 @@ if __name__ == "__main__":
     neg_samples_gcn = 25
     epochs = 50
     learning_rate = .1
+    h_dim_size = int(c['hidden_dim_size'])
 
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
@@ -319,7 +320,8 @@ if __name__ == "__main__":
                         lambda_ae=lambda_ae,
                         lambda_edge=lambda_edge,
                         lambda_g=lambda_g,
-                        neg_samples_gcn=neg_samples_gcn)
+                        neg_samples_gcn=neg_samples_gcn,
+                        h_dim_size=h_dim_size)
     mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
     write_embeddings(arr=mod.embedding.data.numpy(), n_nodes=n_nodes, fname=c['embedding_file'])

@@ -69,7 +69,7 @@ class PredictionModel(object):
         eval_list = [(trn, 'train')]
         model = xgboost.train(self.param, trn, self.n_epochs, verbose_eval=True, evals=eval_list)
         pred = model.predict(tst)
-        
+
         rmse = np.sqrt(mean_squared_error(self.y[test_idx], pred))
         mae = mean_absolute_error(self.y[test_idx], pred)
 

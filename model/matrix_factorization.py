@@ -16,17 +16,18 @@ region_grid.load_weighted_mtx()
 
 A = region_grid.adj_matrix
 W = region_grid.weighted_mtx
+h_dim_size = int(c['hidden_dim_size'])
 
-mf_model = NMF(n_components=16, init='random', solver='cd', max_iter=500, l1_ratio=0)
+mf_model = NMF(n_components=h_dim_size, init='random', solver='cd', max_iter=500, l1_ratio=0)
 
 
 
 if sys.argv[1] == "A":
-    print("Factorizing Adjacency Matrix")
+    print("Factorizing Adjacency Matrix - Hidden Size: {}".format(h_dim_size))
     embedding = mf_model.fit_transform(A)
     n_nodes = A.shape[0]
 elif sys.argv[1] == "W":
-    print("Factorizing Weighted (flow) Matrix")
+    print("Factorizing Weighted (flow) Matrix - Hidden Size: {}".format(h_dim_size))
     embedding = mf_model.fit_transform(W)
     n_nodes = W.shape[0]
 else:
