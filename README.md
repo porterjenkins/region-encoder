@@ -17,6 +17,7 @@ The project uses a config file (called config.json) to do basic setup (e.g., poi
 	"edge_list_file": "edge_list.txt",
 	"deepwalk_file": "deepwalk_embedding.txt",
 	"embedding_file": "embedding.txt",
+	"nmf_file": "nmf_embedding.txt",
 	"raw_flow_file": "taxi-trips.csv",
 	"flow_mtx_file": "flow_mtx.p",
 	"housing_data_file": "zillow_house_price.csv",
@@ -25,6 +26,7 @@ The project uses a config file (called config.json) to do basic setup (e.g., poi
 	"lat_min": "41.8542",
 	"lat_max": "41.9013",
 	"grid_size": "5",
+	"hidden_dim_size": "64",
 	"g_maps_key": "xxxxyyyxxxx",
 	"path_to_image_dir": "foo/bar/city/images_no_marker"
 }
