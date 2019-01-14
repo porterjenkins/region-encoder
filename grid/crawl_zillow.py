@@ -8,6 +8,7 @@ Created on Sun Aug 28 15:18:12 2016
 import requests
 import numpy as np
 import time
+import sys
 
 session = requests.Session()
 session.headers.update({'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36',
@@ -124,17 +125,15 @@ def crawl(z, price_range, page):
     return list_item
 
 
-def main(file_name): 
+def main(file_name, list_zip, n_page=20):
     
     # 3 parameters you may want to change
     # n_page determines how many page you want to search in this zipcode and price range
-    list_zip = range(60601, 60627) + range(60628, 60648) + [60649, 60651, 60652, 60653, 60655, 60656, 60657,
-                                                            60659, 60660, 60661, 60666, 60667, 60827]
-    assert len(list_zip) == 59
+
+    #assert len(list_zip) == 59
 #    list_zip = [60827]
 
     list_price = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 5000000]
-    n_page = 20
     
     array_data_head = ['zpid', 'street', 'city', 'state', 'zipcode',  'price', 'sold', 'soldTime', 'priceSqft', 'latitude', 'longitude', 'numBedrooms', 'numBathrooms', 'sqft']
 #    array_data_head = ['zpid', 'soldTime', 'lat', 'lon', 'priceSqft']
@@ -175,10 +174,10 @@ def main(file_name):
     
     keep_list = []
     del_list = []
-    list_must_have_attr = ['zpid', 'lat','lon','priceSqft']
+    list_must_have_attr = ['zpid', 'latitude','longitude','priceSqft']
     for i in range(len(array_data)):
         for attr in list_must_have_attr:
-            index_attr =  array_data_head.index(attr)
+            index_attr = array_data_head.index(attr)
             if array_data[i, index_attr] == '-1':
                 del_list.append(i)
                 break
@@ -210,6 +209,28 @@ def main(file_name):
     f.close()
 
 
-            
-main('house_source_extra')
+if __name__ == "__main__":
+
+    if len(sys.argv) == 1:
+        raise Exception("No input args")
+    else:
+        city = sys.argv[1]
+        if city == 'chicago':
+            list_zip = list(range(60601, 60627)) + list(range(60628, 60648)) + [60649, 60651, 60652, 60653, 60655,
+                                                                                60656, 60657,
+                                                                                60659, 60660, 60661, 60666, 60667,
+                                                                                60827]
+        elif city == 'nyc':
+            # Manhattan zip codes
+            list_zip = [10026, 10027, 10030, 10037, 10039, 10001, 10011, 10018, 10019, 10020, 10036, 10029, 10035,
+                        10010, 10016, 10017, 10022, 10012, 10013, 10014, 10004, 10005, 10006, 10007, 10038, 10280,
+                        10002, 10003, 10009, 10021, 10028, 10044, 10065, 10075, 10128, 10023, 10024, 10025,
+                        10031, 10032, 10033, 10034, 10040]
+            list_zip = [list_zip[0]]
+
+        else:
+            raise NotImplementedError("Input arg must be in {'chicago', 'nyc'}")
+
+
+main('zillow_house_price', list_zip, n_page=20)
 

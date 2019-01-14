@@ -8,17 +8,11 @@ from sklearn.model_selection import KFold
 from experiments.prediction import HousePriceModel, TrafficVolumeModel
 
 
-
-
-
-#if len(sys.argv) == 1:
-#    raise Exception("User must input task: {'house_price' or 'traffic'")
-#else:
-#   task = sys.argv[1]
-#    n_epochs = int(sys.argv[2])
-
-task = 'traffic'
-n_epochs = 10
+if len(sys.argv) == 1:
+    raise Exception("User must input task: {'house_price' or 'traffic'")
+else:
+   task = sys.argv[1]
+   n_epochs = int(sys.argv[2])
 
 n_folds = 5
 
