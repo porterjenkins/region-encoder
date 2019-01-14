@@ -12,11 +12,12 @@ from model.utils import load_embedding
 
 
 class PredictionModel(object):
-    def __init__(self, idx_coor_map, config, n_epochs, embedding_fname=None):
+    def __init__(self, idx_coor_map, config, n_epochs, embedding_fname=None, second_embed_fname=None):
         self.idx_coor_map = idx_coor_map
         self.config = config
         self.n_epochs = n_epochs
         self.embedding_fname = embedding_fname
+        self.second_embed_fname = second_embed_fname
         self.param = {
             'objective': 'reg:linear',
             'eta': 0.02,
@@ -37,6 +38,11 @@ class PredictionModel(object):
 
         if self.embedding_fname is not None:
             embed = load_embedding(self.embedding_fname)
+
+            if self.second_embed_fname is not None:
+                second_embed = load_embedding(self.second_embed_fname)
+                embed = np.concatenate((embed, second_embed), axis=1)
+
             embed_df = pd.DataFrame(embed, index=self.idx_coor_map.values())
             embed_features = pd.merge(features, embed_df, left_on='region_coor', right_index=True, how='inner')
             embed_features.drop('region_coor', axis=1, inplace=True)
@@ -63,6 +69,7 @@ class PredictionModel(object):
         eval_list = [(trn, 'train')]
         model = xgboost.train(self.param, trn, self.n_epochs, verbose_eval=True, evals=eval_list)
         pred = model.predict(tst)
+        
         rmse = np.sqrt(mean_squared_error(self.y[test_idx], pred))
         mae = mean_absolute_error(self.y[test_idx], pred)
 
@@ -71,7 +78,7 @@ class PredictionModel(object):
 if len(sys.argv) > 1:
     n_epochs = int(sys.argv[1])
 else:
-    n_epochs = 250
+    n_epochs = 150
 
 n_folds = 5
 
@@ -102,6 +109,10 @@ nmf_mod.get_features(zillow)
 re_mod = PredictionModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'])
 re_mod.get_features(zillow)
 
+# init deepwalk + region encoder
+joint_mod = PredictionModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'], c['deepwalk_file'])
+joint_mod.get_features(zillow)
+
 
 k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=1990)
 
@@ -109,6 +120,8 @@ naive_err = np.zeros((n_folds, 2))
 deepwalk_err = np.zeros((n_folds, 2))
 embed_err = np.zeros((n_folds, 2))
 nmf_err = np.zeros((n_folds, 2))
+deepwalk_and_proposed_err = np.zeros((n_folds, 2))
+
 
 train_ind_arr = np.arange(deepwalk_mod.X.shape[0])
 
@@ -137,6 +150,11 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     embed_err[fold_cntr, 0] = rmse
     embed_err[fold_cntr, 1] = mae
 
+    # Joint Model
+    rmse, mae = joint_mod.train_eval(train_idx, test_idx)
+    deepwalk_and_proposed_err[fold_cntr, 0] = rmse
+    deepwalk_and_proposed_err[fold_cntr, 1] = mae
+
 
 
     fold_cntr += 1
@@ -152,6 +170,9 @@ deepwalk_err_std = np.std(deepwalk_err, axis=0)
 
 nmf_err_mean = np.mean(nmf_err, axis=0)
 nmf_err_std = np.std(nmf_err, axis=0)
+
+deepwalk_and_proposed_mean = np.mean(deepwalk_and_proposed_err, axis=0)
+deepwalk_and_proposed_std = np.std(deepwalk_and_proposed_err, axis=0)
 
 
 print("Naive Model:")
@@ -170,7 +191,7 @@ print("Embedding Model:")
 print('RMSE: {:.4f} ({:.4f})'.format(embed_err_mean[0], embed_err_std[0]))
 print('MAE: {:.4f} ({:.4f})'.format(embed_err_mean[1], embed_err_std[1]))
 
-#print("Deepwalk + Proposed Model:")
-#print('RMSE: {:.4f} ({:.4f})'.format(deepwalk_and_proposed_mean[0], deepwalk_and_proposed_std[0]))
-#print('MAE: {:.4f} ({:.4f})'.format(deepwalk_and_proposed_mean[1], deepwalk_and_proposed_std[1]))
+print("Deepwalk + Proposed Model:")
+print('RMSE: {:.4f} ({:.4f})'.format(deepwalk_and_proposed_mean[0], deepwalk_and_proposed_std[0]))
+print('MAE: {:.4f} ({:.4f})'.format(deepwalk_and_proposed_mean[1], deepwalk_and_proposed_std[1]))
 
