@@ -143,8 +143,8 @@ class RegionGrid:
             return float(price[:price.index("m")]) * 1000000
         return float(price)
 
-    def load_housing_data(self, housing_data):
-        df = pandas.read_csv(housing_data)
+    def load_housing_data(self, fname):
+        df = pandas.read_csv(fname)
         #df = df[['lat', 'lon', 'sold', 'sqft']]
 
         reg_coor = numpy.zeros(df.shape[0], dtype=object)
@@ -162,6 +162,27 @@ class RegionGrid:
         print(f"{missed} rows of zillow data not loaded")
         df['region_coor'] = reg_coor
         return df
+
+    def load_traffic_data(self, fname):
+        df = pandas.read_csv(fname)
+        reg_coor = numpy.zeros(df.shape[0], dtype=object)
+        missed = 0
+        for road_id, row in df.iterrows():
+            lat, lon, volume, date = float(row.Latitude), float(row.Longitude), row['Total Passing Vehicle Volume'], row['Date of Count']
+            region = self.get_region_for_coor(lat, lon)
+
+            if region is not None:
+                region.add_traffic_volume(volume)
+                reg_coor[road_id] = region.coordinate_name
+            else:
+                reg_coor[road_id] = numpy.nan
+                missed += 1
+        print(f"{missed} rows of traffic records not loaded")
+        df['region_coor'] = reg_coor
+        return df
+
+
+
 
     def load_img_data(self, img_dims=(640,640), std_img=True):
 
@@ -548,6 +569,7 @@ class Region:
         self.move = self.move_keys()
         self.sat_img = numpy.array
         self.home_data = []
+        self.traffic_data = []
 
     def median_home_value(self):
         return numpy.median(self.home_data)
@@ -563,6 +585,9 @@ class Region:
 
     def add_home(self, home):
         self.home_data.append(home)
+
+    def add_traffic_volume(self, volume):
+        self.traffic_data.append(volume)
 
     def move_keys(self):
         index = self.coordinate_name.split(',')
