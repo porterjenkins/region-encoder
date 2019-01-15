@@ -22,7 +22,7 @@ class RegionEncoder(nn.Module):
     """
 
     def __init__(self, n_nodes, n_nodal_features, h_dim_graph=32, h_dim_img=32, h_dim_size=32,
-                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=1e-4, img_dims=(640, 640),
+                 lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=1e-4, img_dims=(200, 200),
                  neg_samples_disc=None, neg_samples_gcn=10, context_gcn=4):
         super(RegionEncoder, self).__init__()
         # Model Layers

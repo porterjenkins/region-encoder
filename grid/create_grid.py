@@ -184,7 +184,7 @@ class RegionGrid:
 
 
 
-    def load_img_data(self, img_dims=(640,640), std_img=True):
+    def load_img_data(self, img_dims=(200,200), std_img=True):
 
         idx_cntr = 0
         # init image tensor: n_samples x n_channels x n_rows x n_cols
@@ -669,8 +669,9 @@ class Region:
 
 
 def get_images_for_grid(region_grid, clear_dir=False):
-    from image.image_retrieval import get_images_for_all_no_marker
+    from image.image_retrieval import get_images_for_all_no_marker, compress_images
     get_images_for_all_no_marker(region_grid, clear_dir=clear_dir)
+    compress_images(region_grid.img_dir)
 
 
 if __name__ == '__main__':

@@ -1,16 +1,16 @@
 import time
 import urllib.request
-
 from motionless import VisibleMap
-
+from PIL import Image
 import config
+import os
 
 c = config.get_config()
 # put key in config
 key = c['g_maps_key']
 path_to_image_dir = c['path_to_image_dir']
 
-import os
+
 
 if not os.path.exists(path_to_image_dir):
     os.makedirs(path_to_image_dir)
@@ -24,7 +24,7 @@ def create_urls_no_marker(region_grid):
     return urls
 
 
-def create_url_for_region_no_marker(r, x=640, y=640):
+def create_url_for_region_no_marker(r, x=200, y=200):
     vmap = VisibleMap(maptype='satellite', size_x=x, size_y=y, key=key)
     if r.nw:
         vmap.add_latlon(str(r.nw[0]), str(r.nw[1]))
@@ -80,4 +80,16 @@ def download_image(url, fn):
         current_delay *= 2
 
 
+def compress_images(image_dir, resize=(200,200)):
+    files = os.listdir(image_dir)
 
+    for f in files:
+        fname = image_dir + "/" + f
+        img = Image.open(fname)
+        img_small = img.resize(resize, Image.ANTIALIAS)
+        img_small.save(fname, optimize=True, quality=95)
+
+
+
+if __name__ == "__main__":
+    compress_images(path_to_image_dir)

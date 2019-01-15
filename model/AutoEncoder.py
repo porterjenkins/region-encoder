@@ -1,7 +1,7 @@
 import os
 import sys
 from collections import OrderedDict
-
+import torch.nn.functional as F
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,12 +12,12 @@ from config import get_config
 
 class ViewEncode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24 * 158 * 158)
+        return input.view(-1, 24 * 48 * 48)
 
 
 class ViewDecode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24, 158, 158)
+        return input.view(-1, 24, 48, 48)
 
 
 class Tan(nn.Module):
@@ -26,11 +26,7 @@ class Tan(nn.Module):
 
 
 class AutoEncoder(nn.Module):
-    """
-    Denoising Autoencoder implementation
-    """
-
-    def __init__(self, img_dims, h_dim_size=32, cuda_override=False):
+    def __init__(self, img_dims=(200,200), h_dim_size=32, cuda_override=False):
         super(AutoEncoder, self).__init__()
         self.cuda = torch.cuda.is_available() and not cuda_override
         print(f"Cuda Set to {self.cuda}")
@@ -45,7 +41,7 @@ class AutoEncoder(nn.Module):
             ('relu2', nn.ReLU()),
             ('pool2', nn.MaxPool2d(2, 2)),
             ('view', ViewEncode()),
-            ('l1', nn.Linear(24 * 158 * 158, 120)),
+            ('l1', nn.Linear(24 * 48 * 48, 120)),
             ('relu3', nn.ReLU()),
             ('l2', nn.Linear(120, 84)),
             ('relu4', nn.ReLU()),
@@ -58,7 +54,7 @@ class AutoEncoder(nn.Module):
             nn.ReLU(),
             nn.Linear(84, 120),
             nn.ReLU(),
-            nn.Linear(120, 24 * 158 * 158),
+            nn.Linear(120, 24 * 48 * 48),
             nn.ReLU(),
             ViewDecode(),
             nn.Conv2d(24, 6, 3),
@@ -81,8 +77,8 @@ class AutoEncoder(nn.Module):
 
         return x, h
 
-    def get_optimizer(self):
-        optimizer = optim.SGD(self.parameters(), lr=0.05, momentum=0.9)
+    def get_optimizer(self, lr):
+        optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
 
         return optimizer
 
@@ -107,10 +103,10 @@ class AutoEncoder(nn.Module):
 
         return mse
 
-    def run_train_job(self, n_epoch, img_tensor):
+    def run_train_job(self, n_epoch, img_tensor, lr=.1):
         if self.cuda:
             img_tensor = img_tensor.cuda()
-        optimizer = self.get_optimizer()
+        optimizer = self.get_optimizer(lr)
         n_samples = img_tensor.shape[0]
         batch_size = 5
         for epoch in range(n_epoch):  # loop over the dataset multiple times
@@ -161,5 +157,5 @@ if __name__ == "__main__":
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
 
-    auto_encoder = AutoEncoder(img_dims=(640, 640), h_dim_size=32)
+    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=32)
     auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)
