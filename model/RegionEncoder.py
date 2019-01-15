@@ -306,7 +306,7 @@ if __name__ == "__main__":
     lambda_ae = .5
     lambda_edge = 0.05
     lambda_g = 1.0
-    neg_samples_gcn = 25
+    neg_samples_gcn = 10
     epochs = 50
     learning_rate = .1
     h_dim_size = int(c['hidden_dim_size'])
