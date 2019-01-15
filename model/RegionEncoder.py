@@ -95,8 +95,8 @@ class RegionEncoder(nn.Module):
         return reg
 
     def get_optimizer(self, lr):
-        #optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
-        optimizer = optim.Adam(self.parameters(), lr=lr)
+        optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
+        #optimizer = optim.Adam(self.parameters(), lr=lr)
 
         return optimizer
 
