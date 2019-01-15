@@ -26,9 +26,9 @@ class GCN(nn.Module):
         self.n_hidden = h_dim_size
 
         # fully connected layer 1
-        self.fcl_0 = nn.Linear(n_features, 128, bias=True)
+        self.fcl_0 = nn.Linear(n_features, 100, bias=True)
         # Output layer for link prediction
-        self.fcl_1 = nn.Linear(128, h_dim_size, bias=True)
+        self.fcl_1 = nn.Linear(100, h_dim_size, bias=True)
 
         if torch.cuda.is_available():
             self.fcl_0 = self.fcl_0.cuda()

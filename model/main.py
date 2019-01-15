@@ -11,6 +11,8 @@ import pickle
 c = get_config()
 # init region
 region_grid = RegionGrid(config=c)
+print("Initializing Region: Lat [{}, {}], Lon: [{}, {}]".format(region_grid.lat_min, region_grid.lat_max,
+                                                                region_grid.lon_min, region_grid.lat_max))
 # pull images
 get_images_for_grid(region_grid, clear_dir=True)
 # load images
