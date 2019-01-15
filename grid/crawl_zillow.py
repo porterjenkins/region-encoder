@@ -157,7 +157,7 @@ def main(file_name, list_zip, n_page=20):
                 except ValueError as err:
                     print(err)
                     continue
-                
+
                 time.sleep(5)
                 if len(list_item) == 0:
                     break

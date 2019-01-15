@@ -303,8 +303,8 @@ if __name__ == "__main__":
     n_nodal_features = 552
     h_dim_graph = 64
     lambda_ae = .5
-    lambda_edge = .1
-    lambda_g = 0.1
+    lambda_edge = 0.05
+    lambda_g = 1.0
     neg_samples_gcn = 25
     epochs = 50
     learning_rate = .1
@@ -325,4 +325,4 @@ if __name__ == "__main__":
     mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
     write_embeddings(arr=mod.embedding.data.numpy(), n_nodes=n_nodes, fname=c['embedding_file'])
-    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False)
+    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=True)
