@@ -241,11 +241,13 @@ class RegionEncoder(nn.Module):
             img_tensor = img_tensor.cuda()
 
         for i in range(epochs):
-
             optimizer.zero_grad()
+            # Add noise to images
+            img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25, cuda=self.use_cuda)
+
             # forward + backward + optimize
             logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg, \
-            h_image_neg = self.forward(X=X, img_tensor=img_tensor)
+            h_image_neg = self.forward(X=X, img_tensor=img_noisey)
 
             # Generate context (positive samples) and negative samples for SkipGram Loss
             gcn_pos_samples, gcn_neg_samples, neg_probs = GCN.gen_skip_gram_samples(self.context_gcn, self.neg_samples_gcn,
@@ -254,15 +256,14 @@ class RegionEncoder(nn.Module):
 
             # get labels for discriminator
             eta = self.__gen_eta(pos_tens=h_graph, neg_tens=h_graph_neg)
-            # Add noise to images
-            img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25, cuda=self.use_cuda)
+
 
             # Get different objectives
             L_graph = GCN.skip_gram_loss(h_graph, gcn_pos_samples, gcn_neg_samples, neg_probs)
             emp_proximity = W / torch.sum(W)
             L_edge_weights = GCN.loss_weighted_edges(graph_proximity, emp_proximity)
             L_disc = self.loss_disc(eta, logits)
-            L_ae = AutoEncoder.loss_mse(img_noisey, image_hat)
+            L_ae = AutoEncoder.loss_mse(img_tensor, image_hat)
 
             # regularize weights
             weight_decay = self.weight_decay()
