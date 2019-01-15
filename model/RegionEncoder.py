@@ -25,6 +25,10 @@ class RegionEncoder(nn.Module):
                  lambda_ae=.1, lambda_g=.1, lambda_edge=.1, lambda_weight_decay=1e-4, img_dims=(200, 200),
                  neg_samples_disc=None, neg_samples_gcn=10, context_gcn=4):
         super(RegionEncoder, self).__init__()
+
+        # Ensure consistent hidden size for discriminator
+        assert(h_dim_img == h_dim_graph)
+        assert(h_dim_size == h_dim_graph)
         # Model Layers
         self.graph_conv_net = GCN(n_features=n_nodal_features, h_dim_size=h_dim_graph)
         self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img, img_dims=img_dims)
@@ -302,14 +306,16 @@ if __name__ == "__main__":
 
     # hyperparameters
     n_nodal_features = 552
-    h_dim_graph = 64
+    h_dim_graph = 32
+    h_dim_img = 32
+    h_dim_size = int(c['hidden_dim_size'])
     lambda_ae = .5
     lambda_edge = 0.05
     lambda_g = 1.0
     neg_samples_gcn = 10
     epochs = 50
     learning_rate = .1
-    h_dim_size = int(c['hidden_dim_size'])
+
 
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
@@ -318,6 +324,7 @@ if __name__ == "__main__":
     mod = RegionEncoder(n_nodes=n_nodes,
                         n_nodal_features=n_nodal_features,
                         h_dim_graph=h_dim_graph,
+                        h_dim_img=h_dim_img,
                         lambda_ae=lambda_ae,
                         lambda_edge=lambda_edge,
                         lambda_g=lambda_g,
