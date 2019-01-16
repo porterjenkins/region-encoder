@@ -235,6 +235,7 @@ class RegionEncoder(nn.Module):
         img_tensor = torch.Tensor(region_grid.img_tensor)
 
         batch_size = A.shape[0]
+        region_grid.img_tens_get_size()
         print("Beginning training job: epochs: {}, batch size: {}, learning rate:{}".format(epochs, batch_size,
                                                                                             lr))
 
