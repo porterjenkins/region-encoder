@@ -333,5 +333,10 @@ if __name__ == "__main__":
                         h_dim_size=h_dim_size)
     mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
-    write_embeddings(arr=mod.embedding.data.numpy(), n_nodes=n_nodes, fname=c['embedding_file'])
+    if torch.cuda.is_available():
+        embedding = mod.embedding.data.cpu().numpy()
+    else:
+        embedding = mod.embedding.data.numpy()
+
+    write_embeddings(arr=embedding, n_nodes=n_nodes, fname=c['embedding_file'])
     mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=True)
