@@ -308,7 +308,7 @@ if __name__ == "__main__":
 
     # hyperparameters
     n_nodal_features = region_grid.feature_matrix.shape[1]
-    h_dim_graph = 32
+    h_dim_graph = 64
     h_dim_img = 32
     h_dim_size = int(c['hidden_dim_size'])
     lambda_ae = .5

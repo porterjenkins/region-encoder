@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import xgboost
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from model.utils import load_embedding
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import Lasso
 from sklearn.ensemble import RandomForestRegressor
 
 
@@ -67,9 +67,9 @@ class PredictionModel(object):
             eval_list = [(trn, 'train')]
             model = xgboost.train(self.param, trn, self.n_epochs, verbose_eval=True, evals=eval_list)
             pred = model.predict(tst)
-        elif model == 'logit':
+        elif model == 'lasso':
 
-            model = LogisticRegression(penalty='l1', C=1.0)
+            model = Lasso(alpha=1.0, fit_intercept=True)
             model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
             pred = model.predict(X=self.X[test_idx])
 

@@ -16,7 +16,7 @@ else:
    task = sys.argv[1]
    estimator = sys.argv[2]
 
-assert(estimator in ['xgb', 'logit', 'rf'])
+assert(estimator in ['xgb', 'lasso', 'rf'])
 
 n_epochs = 150
 n_folds = 5
