@@ -5,10 +5,9 @@ import torch.nn.functional as F
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
-
+from model.utils import write_embeddings
 
 class ViewEncode(nn.Module):
     def forward(self, input):
@@ -30,7 +29,7 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
         self.cuda = torch.cuda.is_available() and not cuda_override
         print(f"Cuda Set to {self.cuda}")
-
+        self.h_dim_size = h_dim_size
         self.img_dims = img_dims
         # Encoder
         self.encoder = nn.Sequential(OrderedDict([
@@ -103,23 +102,33 @@ class AutoEncoder(nn.Module):
 
         return mse
 
-    def run_train_job(self, n_epoch, img_tensor, lr=.1):
+    def run_train_job(self, n_epoch, img_tensor, lr=.1, noise=.25):
         if self.cuda:
             img_tensor = img_tensor.cuda()
         optimizer = self.get_optimizer(lr)
         n_samples = img_tensor.shape[0]
+
+        hidden_state = torch.zeros(n_samples, self.h_dim_size)
+        if self.cuda:
+            hidden_state = hidden_state.cuda()
+
+
         batch_size = 5
         for epoch in range(n_epoch):  # loop over the dataset multiple times
+            permute_idx = np.random.permutation(np.arange(n_samples))
             for step in range(int(n_samples / batch_size)):
                 start_idx = step * batch_size
                 end_idx = start_idx + batch_size
-                img = img_tensor[start_idx:end_idx, :, :, :]
+                batch_idx = permute_idx[start_idx:end_idx]
 
-                noisey_inputs = AutoEncoder.add_noise(img, noise_factor=.25, cuda=self.cuda)
+                noisey_inputs = AutoEncoder.add_noise(img_tensor[batch_idx, :, :, :], noise_factor=noise, cuda=self.cuda)
 
                 # forward
-                reconstruction, h = self.forward(x=noisey_inputs)
-                loss = AutoEncoder.loss_mse(img_tensor[start_idx:end_idx, :, :, :], reconstruction)
+                reconstruction, h_batch = self.forward(x=noisey_inputs)
+                loss = AutoEncoder.loss_mse(img_tensor[batch_idx, :, :, :], reconstruction)
+
+                # Update matrix of learned representations
+                hidden_state[batch_idx, :] = h_batch
 
                 # backward
                 # zero the parameter gradients
@@ -127,8 +136,11 @@ class AutoEncoder(nn.Module):
                 loss.backward()
                 optimizer.step()
 
+
                 print("Epoch: {}, step: {}, Train Loss {:.4f}".format(epoch, step, loss.item()))
         print('Finished Training')
+
+        return hidden_state
 
 
 if __name__ == "__main__":
@@ -149,13 +161,28 @@ if __name__ == "__main__":
         else:
             plt.show()
 
+    if len(sys.argv) > 1:
+        epochs = int(sys.argv[1])
+        learning_rate = float(sys.argv[2])
+    else:
+        epochs = 25
+        learning_rate = .1
 
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
     region_grid.img_tens_get_size()
 
-    img_tensor = torch.Tensor(region_grid.img_tensor)
 
-    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=32)
-    auto_encoder.run_train_job(n_epoch=25, img_tensor=img_tensor)
+    img_tensor = torch.Tensor(region_grid.img_tensor)
+    h_dim_size = int(c['hidden_dim_size'])
+
+    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=h_dim_size)
+    embedding = auto_encoder.run_train_job(n_epoch=epochs, img_tensor=img_tensor, lr=learning_rate)
+
+    if torch.cuda.is_available():
+        embedding = embedding.data.cpu().numpy()
+    else:
+        embedding = embedding.data.numpy()
+
+    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_embedding_file'])

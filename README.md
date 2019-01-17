@@ -18,6 +18,7 @@ The project uses a config file (called config.json) to do basic setup (e.g., poi
 	"deepwalk_file": "deepwalk_embedding.txt",
 	"embedding_file": "embedding.txt",
 	"nmf_file": "nmf_embedding.txt",
+	"autoencoder_embedding_file": "autoencoder_embedding.txt",
 	"raw_flow_file": "taxi-trips.csv",
 	"flow_mtx_file": "flow_mtx.p",
 	"housing_data_file": "zillow_house_price.csv",
