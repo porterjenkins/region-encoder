@@ -23,8 +23,9 @@ class DiscriminatorMLP(nn.Module):
 
     def forward(self, x, z, activation=True):
         X = torch.cat((x, z), dim=-1)
-        hadamard = torch.mul(x, z)
-        h = F.relu(hadamard + self.W_0(X))
+        #hadamard = torch.mul(x, z)
+        #h = F.relu(hadamard + self.W_0(X))
+        h = F.relu(self.W_0(X))
         if activation:
             output = F.sigmoid(self.W_output(h))
         else:

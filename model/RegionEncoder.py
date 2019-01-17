@@ -27,8 +27,8 @@ class RegionEncoder(nn.Module):
         super(RegionEncoder, self).__init__()
 
         # Ensure consistent hidden size for discriminator
-        assert(h_dim_img == h_dim_graph)
-        assert(h_dim_size == h_dim_graph)
+        #assert(h_dim_img == h_dim_graph)
+        #assert(h_dim_size == h_dim_graph)
         # Model Layers
         self.graph_conv_net = GCN(n_features=n_nodal_features, h_dim_size=h_dim_graph)
         self.auto_encoder = AutoEncoder(h_dim_size=h_dim_img, img_dims=img_dims)
