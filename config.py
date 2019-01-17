@@ -20,12 +20,13 @@ def get_config():
 
     for key, val in config.items():
         if 'file' in key:
-            for model_name in BASELINES:
-                if model_name in key:
-                    config[key] = embed_path + val
-                    break
-                else:
-                    config[key] = config['data_dir_main'] + val
+            #for model_name in BASELINES:
+            #    if model_name in key:
+            #        config[key] = embed_path + val
+            #        break
+            #    else:
+            #        config[key] = config['data_dir_main'] + val
+            config[key] = config['data_dir_main'] + val
 
         if 'lat' in key or 'lon' in key:
             config[key] = float(val)
