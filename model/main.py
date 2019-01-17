@@ -5,6 +5,8 @@ from model.RegionEncoder import RegionEncoder
 from grid.create_grid import RegionGrid, get_images_for_grid
 from config import get_config
 import pickle
+import torch
+from model.utils import write_embeddings
 
 # Main script if region area, or grid configuration changes
 
@@ -35,7 +37,7 @@ lambda_ae = .5
 lambda_edge = 0.05
 lambda_g = 1.0
 neg_samples_gcn = 10
-epochs = 50
+epochs = 15
 learning_rate = .1
 
 if len(sys.argv) > 1:
@@ -52,3 +54,10 @@ mod = RegionEncoder(n_nodes=n_nodes,
                     neg_samples_gcn=neg_samples_gcn,
                     h_dim_size=h_dim_size)
 mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
+if torch.cuda.is_available():
+    embedding = mod.embedding.data.cpu().numpy()
+else:
+    embedding = mod.embedding.data.numpy()
+
+write_embeddings(arr=embedding, n_nodes=n_nodes, fname=c['embedding_file'])
+mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=True)
