@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+import pandas as pd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
 from grid.create_grid import RegionGrid
@@ -81,7 +82,6 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     naive_err[fold_cntr, 0] = rmse
     naive_err[fold_cntr, 1] = mae
 
-
     # DeepWalk Model
     rmse, mae = deepwalk_mod.train_eval(train_idx, test_idx)
     deepwalk_err[fold_cntr, 0] = rmse
@@ -112,46 +112,32 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     fold_cntr += 1
 
+results = []
+
 naive_err_mean = np.mean(naive_err, axis=0)
 naive_err_std = np.std(naive_err, axis=0)
-
-embed_err_mean = np.mean(embed_err, axis=0)
-embed_err_std = np.std(embed_err, axis=0)
+results.append(['Naive', naive_err_mean[0], naive_err_std[0], naive_err_mean[1], naive_err_std[1]])
 
 deepwalk_err_mean = np.mean(deepwalk_err, axis=0)
 deepwalk_err_std = np.std(deepwalk_err, axis=0)
+results.append(['DeepWalk Embedding', deepwalk_err_mean[0], deepwalk_err_std[0], deepwalk_err_mean[1], deepwalk_err_std[1]])
 
 nmf_err_mean = np.mean(nmf_err, axis=0)
 nmf_err_std = np.std(nmf_err, axis=0)
+results.append(['Matrix Factorization', nmf_err_mean[0], nmf_err_std[0], nmf_err_mean[1], nmf_err_std[1]])
 
 pca_err_mean = np.mean(pca_err, axis=0)
 pca_err_std = np.std(pca_err, axis=0)
+results.append(['PCA', pca_err_mean[0], pca_err_std[0], pca_err_mean[1], pca_err_std[1]])
 
 ae_err_mean = np.mean(ae_err, axis=0)
 ae_err_std = np.std(ae_err, axis=0)
+results.append(['AutoEncoder', ae_err_mean[0], ae_err_std[0], ae_err_mean[1], ae_err_std[1]])
+
+embed_err_mean = np.mean(embed_err, axis=0)
+embed_err_std = np.std(embed_err, axis=0)
+results.append(['RegionEncoder', embed_err_mean[0], embed_err_std[0], embed_err_mean[1], embed_err_std[1]])
 
 
-
-print("Naive Model:")
-print('RMSE: {:.4f} ({:.4f})'.format(naive_err_mean[0], naive_err_std[0]))
-print('MAE: {:.4f} ({:.4f})'.format(naive_err_mean[1], naive_err_std[1]))
-
-print("Deepwalk Embedding:")
-print('RMSE: {:.4f} ({:.4f})'.format(deepwalk_err_mean[0], deepwalk_err_std[0]))
-print('MAE: {:.4f} ({:.4f})'.format(deepwalk_err_mean[1], deepwalk_err_std[1]))
-
-print("Matrix Factorization Embedding:")
-print('RMSE: {:.4f} ({:.4f})'.format(nmf_err_mean[0], nmf_err_std[0]))
-print('MAE: {:.4f} ({:.4f})'.format(nmf_err_mean[1], nmf_err_std[1]))
-
-print("PCA Embedding:")
-print('RMSE: {:.4f} ({:.4f})'.format(pca_err_mean[0], pca_err_std[0]))
-print('MAE: {:.4f} ({:.4f})'.format(pca_err_mean[1], pca_err_std[1]))
-
-print("AutoEncoder Embedding:")
-print('RMSE: {:.4f} ({:.4f})'.format(ae_err_mean[0], ae_err_std[0]))
-print('MAE: {:.4f} ({:.4f})'.format(ae_err_mean[1], ae_err_std[1]))
-
-print("RegionEncoder Embedding:")
-print('RMSE: {:.4f} ({:.4f})'.format(embed_err_mean[0], embed_err_std[0]))
-print('MAE: {:.4f} ({:.4f})'.format(embed_err_mean[1], embed_err_std[1]))
+results_df = pd.DataFrame(results, columns=['model', 'cv mse', 'std mse', 'cv mae', 'std mae'])
+print(results_df)
