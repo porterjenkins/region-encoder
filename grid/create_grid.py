@@ -32,22 +32,22 @@ class RegionGrid:
         As the vertical starting point for longitude, the Prime Meridian is numbered 0 degrees longitude
     """
 
-    def __init__(self, config, sample_prob=None):
+    def __init__(self, config, sample_prob=None, use_config_lat_lon=True):
 
         poi = self.get_poi_pickle(config['poi_file'])
         poi_rect, self.categories = RegionGrid.handle_poi(poi)
 
-        if config['lon_min'] is None or config['lon_max'] is None or config['lat_min'] is None or config['lat_max'] is None:
+        if use_config_lat_lon:
+            self.lon_min = config['lon_min']
+            self.lon_max = config['lon_max']
+            self.lat_min = config['lat_min']
+            self.lat_max = config['lat_max']
+        else:
             self.lon_min = poi_rect["lon_min"]
             self.lon_max = poi_rect["lon_max"]
             self.lat_min = poi_rect["lat_min"]
             self.lat_max = poi_rect["lat_max"]
 
-        else:
-            self.lon_min = config['lon_min']
-            self.lon_max = config['lon_max']
-            self.lat_min = config['lat_min']
-            self.lat_max = config['lat_max']
 
         self.grid_size = config['grid_size']
         self.img_dir = config['path_to_image_dir']
@@ -65,10 +65,11 @@ class RegionGrid:
                 self.y_space,
                 sample_prob=sample_prob
             )
+        self.load_poi(poi)
         self.n_regions = len(self.regions)
         # Reverse mapping: index to coordinate name
         self.idx_coor_map = dict(zip(self.matrix_idx_map.values(), self.matrix_idx_map.keys()))
-        self.feature_matrix = self.create_feature_matrix()\
+        self.feature_matrix = self.create_feature_matrix()
 
 
     def load_poi(self, poi):
@@ -394,7 +395,7 @@ class RegionGrid:
 
         return "{},{}".format(x_idx, y_idx)
 
-    def create_flow_matrix(self, fname, n_rows=None):
+    def create_flow_matrix(self, fname, n_rows=None, region_name='chicago'):
         """
         Generated a weighted matrix (dims: n_regions x n_regions) from taxi flow data
          (https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew)
@@ -405,14 +406,23 @@ class RegionGrid:
         :return: (np.array) 2-d weighted flow matrix
         """
         # approx 99M rows
-        row_total = 99e6
+        #row_total = 99e6
 
         flow_matrix = numpy.zeros((self.n_regions, self.n_regions))
         # index given by chicago data portal docs
-        drop_lat_idx = 20
-        drop_lon_idx = 21
-        pickup_lat_idx = 17
-        pickup_lon_idx = 18
+        if region_name == 'chicago':
+            drop_lat_idx = 20
+            drop_lon_idx = 21
+            pickup_lat_idx = 17
+            pickup_lon_idx = 18
+        elif region_name == 'nyc':
+            drop_lat_idx = 8
+            drop_lon_idx = 7
+            pickup_lat_idx = 6
+            pickup_lon_idx = 5
+        else:
+            raise NotImplementedError("Taxi trajectory parsing only implemented for 'chicago' and 'nyc'")
+
 
         sample_cnt = 0
         row_cntr = 0
@@ -422,10 +432,12 @@ class RegionGrid:
 
                 if row_cntr == 0:
                     headers = data
-
                 else:
-                    trip_pickup = (data[pickup_lat_idx], data[pickup_lon_idx])
-                    trip_drop = (data[drop_lat_idx], data[drop_lon_idx])
+                    try:
+                        trip_pickup = (data[pickup_lat_idx], data[pickup_lon_idx])
+                        trip_drop = (data[drop_lat_idx], data[drop_lon_idx])
+                    except IndexError:
+                        continue
 
                     if self._iscomplete(trip_pickup) and self._iscomplete(trip_drop):
                         try:
@@ -442,8 +454,7 @@ class RegionGrid:
                             sample_cnt += 1
 
                             if sample_cnt % 100 == 0:
-                                progress = row_cntr / row_total
-                                print("{:.4f}: {}, {} --> {}".format(progress, sample_cnt, trip_pickup, trip_drop),
+                                print("{}, {} --> {}".format(sample_cnt, trip_pickup, trip_drop),
                                       end="\r")
 
                             if n_rows is not None:
@@ -677,20 +688,25 @@ def get_images_for_grid(region_grid, clear_dir=False):
 if __name__ == '__main__':
     c = get_config()
     region_grid = RegionGrid(config=c)
-    region_grid.load_img_data(std_img=True)
+    tmp = region_grid.feature_matrix.sum(axis=1)
+    #region_grid.load_img_data(std_img=True)
     region_grid.load_weighted_mtx()
+    region_grid.load_housing_data(c['housing_data_file'])
+
+
 
 
     A = region_grid.adj_matrix
     D = region_grid.degree_matrix
     W = region_grid.weighted_mtx
-    I = region_grid.img_tensor
+
+    #I = region_grid.img_tensor
 
     print(W.shape)
     print(A.shape)
     print(D.shape)
-    print(I.shape)
+    #print(I.shape)
     y_house = region_grid.get_target_var("house_price")
-    print(y_house.shape)
+    print(y_house)
 
-    print(I)
+    #print(I)

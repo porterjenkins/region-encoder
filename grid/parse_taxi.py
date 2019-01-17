@@ -11,7 +11,7 @@ c = get_config()
 region_grid = RegionGrid(config=c)
 
 
-W = region_grid.create_flow_matrix(c['raw_flow_file'])
+W = region_grid.create_flow_matrix(c['raw_flow_file'], region_name=c['city_name'])
 
 
 with open(c['flow_mtx_file'], 'wb') as f:

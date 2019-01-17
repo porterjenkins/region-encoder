@@ -8,7 +8,7 @@ The project uses a config file (called config.json) to do basic setup (e.g., poi
 
 ``` 	
 
-{
+{   "city_name": "nyc",
 	"data_dir_main": "foo/bar/city/",
 	"census_income_file": "Household Income by Race and Census Tract and Community Area.xlsx",
 	"tract_shape_file": "Census-Tracts-2010/chicago-tract.shp",
