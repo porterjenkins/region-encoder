@@ -238,7 +238,7 @@ class RegionGrid:
                     #if load_imgs:
                     #    r.load_sat_img(img_dir, standarize=std_img)
                     #    img_tensor[index, :, :, :] = r.sat_img
-                    print("Initializing region: %s" % r.coordinate_name)
+                    print("Initializing region: %s" % r.coordinate_name, end='\r')
                     index += 1
                     regions[f"{x_point},{y_point}"] = r
                     for key in RegionGrid.key_gen(x_point, y_point):
@@ -416,8 +416,8 @@ class RegionGrid:
             pickup_lat_idx = 17
             pickup_lon_idx = 18
         elif region_name == 'nyc':
-            drop_lat_idx = 8
-            drop_lon_idx = 7
+            drop_lat_idx = 10
+            drop_lon_idx = 9
             pickup_lat_idx = 6
             pickup_lon_idx = 5
         else:
