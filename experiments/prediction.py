@@ -11,6 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 from experiments.mlp import MLP
 import torch
 from sklearn.neural_network import MLPRegressor
+from experiments.metrics import *
 
 class PredictionModel(object):
     def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None):
@@ -97,6 +98,7 @@ class PredictionModel(object):
 
         rmse = np.sqrt(mean_squared_error(self.y[test_idx], pred))
         mae = mean_absolute_error(self.y[test_idx], pred)
+        mre = mean_relative_error(self.y[test_idx], pred)
 
         return rmse, mae
 

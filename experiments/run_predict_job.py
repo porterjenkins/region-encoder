@@ -11,15 +11,20 @@ from experiments.prediction import HousePriceModel, TrafficVolumeModel
 
 
 
+
 if len(sys.argv) == 1:
     raise Exception("User must input task, estimator")
 else:
-   task = sys.argv[1]
-   estimator = sys.argv[2]
+    task = sys.argv[1]
+    estimator = sys.argv[2]
+    try:
+       n_epochs = 150
+    except IndexError:
+        n_epochs = 25
+
 
 assert(estimator in ['xgb', 'lasso', 'rf', 'mlp', 'ridge'])
 
-n_epochs = 150
 n_folds = 5
 
 print("K-Fold Learning - {}".format(estimator))
@@ -178,5 +183,5 @@ results.append(['RegionEncoder', embed_err_mean[0], embed_err_std[0], embed_err_
 
 
 
-results_df = pd.DataFrame(results, columns=['model', 'cv mse', 'std mse', 'cv mae', 'std mae'])
+results_df = pd.DataFrame(results, columns=['model', 'cv rmse', 'std rmse', 'cv mae', 'std mae'])
 print(results_df)
