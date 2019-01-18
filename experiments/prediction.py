@@ -14,12 +14,13 @@ from sklearn.neural_network import MLPRegressor
 from experiments.metrics import *
 
 class PredictionModel(object):
-    def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None):
+    def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None, third_embedding=None):
         self.idx_coor_map = idx_coor_map
         self.config = config
         self.n_epochs = n_epochs
         self.embedding = embedding
         self.second_embedding = second_embedding
+        self.third_embedding = third_embedding
         self.param = {
             'objective': 'reg:linear',
             'eta': 0.02,
@@ -50,6 +51,9 @@ class PredictionModel(object):
             if self.second_embedding is not None:
                 second_embed = self.__is_fname(self.second_embedding)
                 embed = np.concatenate((embed, second_embed), axis=1)
+                if self.third_embedding is not None:
+                    third_embed = self.__is_fname(self.third_embedding)
+                    embed = np.concatenate((embed, third_embed), axis=1)
 
             return embed
         else:
@@ -103,8 +107,8 @@ class PredictionModel(object):
         return rmse, mae
 
 class HousePriceModel(PredictionModel):
-    def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None):
-        super(HousePriceModel, self).__init__(idx_coor_map, config, n_epochs, embedding, second_embedding)
+    def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None, third_embedding=None):
+        super(HousePriceModel, self).__init__(idx_coor_map, config, n_epochs, embedding, second_embedding, third_embedding)
 
     def get_features(self, input_data):
         features = input_data[['numBedrooms', 'numBathrooms', 'sqft', 'region_coor', 'priceSqft', 'lat', 'lon']]
@@ -131,8 +135,8 @@ class HousePriceModel(PredictionModel):
         self.y = y
 
 class TrafficVolumeModel(PredictionModel):
-    def __init__(self, idx_coor_map, config, n_epochs, embedding_fname=None, second_embed_fname=None):
-        super(TrafficVolumeModel, self).__init__(idx_coor_map, config, n_epochs, embedding_fname, second_embed_fname)
+    def __init__(self, idx_coor_map, config, n_epochs, embedding_fname=None, second_embed_fname=None, third_embedding=None):
+        super(TrafficVolumeModel, self).__init__(idx_coor_map, config, n_epochs, embedding_fname, second_embed_fname, third_embedding)
 
     def get_features(self, input_data):
         features = input_data[['region_coor', 'Latitude', 'Longitude', 'Total Passing Vehicle Volume']]
