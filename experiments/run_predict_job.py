@@ -10,13 +10,14 @@ from experiments.prediction import HousePriceModel, TrafficVolumeModel
 
 
 
+
 if len(sys.argv) == 1:
     raise Exception("User must input task, estimator")
 else:
    task = sys.argv[1]
    estimator = sys.argv[2]
 
-assert(estimator in ['xgb', 'lasso', 'rf'])
+assert(estimator in ['xgb', 'lasso', 'rf', 'mlp', 'ridge'])
 
 n_epochs = 150
 n_folds = 5

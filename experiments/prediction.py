@@ -9,7 +9,8 @@ from model.utils import load_embedding
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.ensemble import RandomForestRegressor
 from experiments.mlp import MLP
-
+import torch
+from sklearn.neural_network import MLPRegressor
 
 class PredictionModel(object):
     def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None):
@@ -87,10 +88,11 @@ class PredictionModel(object):
             pred = model.predict(X=self.X[test_idx])
 
         elif model == 'mlp':
-            n_features = self.X.shape[1]
-            model = MLP(n_features=n_features, h_dim=128)
-            model.fit(X=self.X[train_idx, :], y=self.y[train_idx], eta=.05, batch_size=16, )
 
+            model = MLPRegressor(hidden_layer_sizes=(128,), activation='relu', solver='adam', alpha=.01, batch_size=100,
+                                 learning_rate_init=.05, max_iter=self.n_epochs)
+            model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
+            pred = model.predict(X=self.X[test_idx])
 
 
         rmse = np.sqrt(mean_squared_error(self.y[test_idx], pred))
