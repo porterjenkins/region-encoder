@@ -6,8 +6,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import xgboost
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from model.utils import load_embedding
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Lasso, Ridge
 from sklearn.ensemble import RandomForestRegressor
+from experiments.mlp import MLP
 
 
 class PredictionModel(object):
@@ -73,11 +74,22 @@ class PredictionModel(object):
             model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
             pred = model.predict(X=self.X[test_idx])
 
+        elif model == 'ridge':
+
+            model = Ridge(alpha=1.0, fit_intercept=True)
+            model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
+            pred = model.predict(X=self.X[test_idx])
+
         elif model == 'rf':
 
             model = RandomForestRegressor()
             model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
             pred = model.predict(X=self.X[test_idx])
+
+        elif model == 'mlp':
+            n_features = self.X.shape[1]
+            model = MLP(n_features=n_features, h_dim=128)
+            model.fit(X=self.X[train_idx, :], y=self.y[train_idx], eta=.05, batch_size=16, )
 
 
 
