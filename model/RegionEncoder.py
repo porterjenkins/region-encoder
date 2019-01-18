@@ -257,6 +257,7 @@ class RegionEncoder(nn.Module):
         for i in range(epochs):
             optimizer.zero_grad()
 
+            print("Updating graph, discriminator weights: ")
             # FIX: Weight_img - UPDATE: Weights_graph, Weights_disc
             logits, h_global, graph_proximity, h_graph, h_graph_neg, \
             h_image_neg = self.forward(X=X, H_img=H_img)
@@ -281,12 +282,13 @@ class RegionEncoder(nn.Module):
             loss.backward(retain_graph=True)
             optimizer.step()
 
-            print("Updating graph, discriminator weights: ")
+
             print("Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
                   " autoencoder: {:.4f})".format(i + 1, loss.item(), L_graph, L_edge_weights, L_disc, L_ae))
 
             # FIX: Weights_graph -- UPDATE: Weights_img, Weights_disc
             permute_idx = np.random.permutation(np.arange(n_samples))
+            print("Updating AutoEncoder weights: ")
             for step in range(int(n_samples / batch_size)):
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -316,7 +318,6 @@ class RegionEncoder(nn.Module):
                 optimizer.step()
 
 
-                print("Updating AutoEncoder weights: ")
                 print("--> Epoch: {}, {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
                       " autoencoder: {:.4f})".format(i + 1, step, loss.item(), L_graph, L_edge_weights, L_disc, L_ae))
 
