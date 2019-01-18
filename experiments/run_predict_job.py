@@ -185,3 +185,5 @@ results.append(['RegionEncoder', embed_err_mean[0], embed_err_std[0], embed_err_
 
 results_df = pd.DataFrame(results, columns=['model', 'cv rmse', 'std rmse', 'cv mae', 'std mae'])
 print(results_df)
+
+results_df.to_csv("house-price-results.csv")
