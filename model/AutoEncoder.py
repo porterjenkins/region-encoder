@@ -117,6 +117,8 @@ class AutoEncoder(nn.Module):
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             permute_idx = np.random.permutation(np.arange(n_samples))
             for step in range(int(n_samples / batch_size)):
+                # zero the parameter gradients
+                optimizer.zero_grad()
                 start_idx = step * batch_size
                 end_idx = start_idx + batch_size
                 batch_idx = permute_idx[start_idx:end_idx]
