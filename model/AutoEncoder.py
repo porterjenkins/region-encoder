@@ -69,10 +69,14 @@ class AutoEncoder(nn.Module):
             self.encoder = self.encoder.cuda()
             self.decoder = self.decoder.cuda()
 
-    def forward(self, x):
+    def forward(self, x, decode_only=False):
 
-        h = self.encoder(x)
-        x = self.decoder(h)
+        if decode_only:
+            h = x
+            x = self.decoder(h)
+        else:
+            h = self.encoder(x)
+            x = self.decoder(h)
 
         return x, h
 
