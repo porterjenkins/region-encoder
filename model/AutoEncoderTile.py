@@ -5,6 +5,7 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
@@ -47,9 +48,12 @@ class AutoEncoder(nn.Module):
         if self.cuda:
             self.encoder = self.encoder.cuda()
 
-    def forward(self, x):
+    def forward(self, x, neighbor, distance):
 
-        return self.encoder(x)
+        h = self.encoder(x)
+        h_n = self.encoder(neighbor)
+        h_d = self.encoder(distance)
+        return h, h_n, h_d
 
     def get_optimizer(self, lr):
         optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
@@ -82,7 +86,7 @@ class AutoEncoder(nn.Module):
         l_n = torch.norm(patch - neighbor)
         l_d = torch.norm(patch - distant)
         l_nd = l_n - l_d
-        loss = nn.relu(l_nd + m)
+        loss = F.relu(l_nd + m)
         loss += l * (torch.norm(patch) + torch.norm(neighbor) + torch.norm(distant))
         return loss
 
@@ -108,11 +112,12 @@ class AutoEncoder(nn.Module):
                 triplets = region_grid.create_triplets(batch_idx, img_tensor)
 
                 # forward
-                h_batch = self.forward(x=triplets[0])
-                loss = self.triplet_loss(h_batch, triplets[1], triplets[2])
+                h_batch, neighbor, distance = self.forward(x=triplets[0], neighbor=triplets[1], distance=triplets[0])
+
+                loss = self.triplet_loss(h_batch, neighbor, distance)
 
                 # Update matrix of learned representations
-                hidden_state[batch_idx, :] = h_batch
+                hidden_state[batch_idx, :] = h_batch[0]
 
                 # backward
                 # zero the parameter gradients
