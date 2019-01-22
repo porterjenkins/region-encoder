@@ -358,10 +358,7 @@ class RegionEncoder(nn.Module):
 
                 if self.use_cuda:
                     torch.cuda.empty_cache()
-
-
-            del loss
-
+                    
             # store loss values for learning curve
             self.loss_seq.append(loss.item())
             self.loss_seq_gcn.append(self.lambda_g * L_graph.item())
