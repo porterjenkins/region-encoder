@@ -1,4 +1,3 @@
-from memory_profiler import profile
 import logging
 import os
 import pickle
@@ -697,6 +696,7 @@ def get_images_for_grid(region_grid, clear_dir=False):
 
 
 if __name__ == '__main__':
+    from memory_profiler import profile
     @profile
     def main():
         c = get_config()
