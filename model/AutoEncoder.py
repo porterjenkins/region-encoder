@@ -185,4 +185,4 @@ if __name__ == "__main__":
     else:
         embedding = embedding.data.numpy()
 
-    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_embedding_file'])
+    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_tile_embedding_file'])
