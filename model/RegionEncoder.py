@@ -1,6 +1,5 @@
 import os
 import sys
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.nn as nn
@@ -232,10 +231,9 @@ class RegionEncoder(nn.Module):
             return False
 
     def run_train_job(self, region_grid, epochs, lr, batch_size, tol=.001, tol_order=5, n_graph_updates=2):
-
         optimizer = self.get_optimizer(lr=lr)
-        region_mtx_map = region_grid.matrix_idx_map
 
+        region_mtx_map = region_grid.matrix_idx_map
 
         A = region_grid.adj_matrix
         D = region_grid.degree_matrix
@@ -272,6 +270,7 @@ class RegionEncoder(nn.Module):
             H_img = H_img.cuda()
 
         for i in range(epochs):
+
             print("Epoch: {}".format(i + 1))
             print('Updating Graph Weights:')
             for graph_step in range(n_graph_updates):
@@ -297,7 +296,7 @@ class RegionEncoder(nn.Module):
                 # regularize weights
                 weight_decay = self.weight_decay()
                 loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae, weight_decay)
-                loss.backward(retain_graph=True)
+                loss.backward(retain_graph=True, create_graph=False)
                 optimizer.step()
 
 
@@ -309,7 +308,8 @@ class RegionEncoder(nn.Module):
 
 
             print("Updating Image Weights:")
-            for step in range(int(n_samples / batch_size)):
+            n_steps = int(n_samples / batch_size)
+            for step in range(n_steps):
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -336,6 +336,10 @@ class RegionEncoder(nn.Module):
                 # regularize weights
                 weight_decay = self.weight_decay()
                 loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae, weight_decay)
+                #if step == (n_steps - 1):
+                #    loss.backward(retain_graph=False)
+                #else:
+
                 loss.backward(retain_graph=True)
                 optimizer.step()
 
@@ -343,8 +347,11 @@ class RegionEncoder(nn.Module):
                 print("--> Image Step {}: Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
                       " autoencoder: {:.4f})".format(step+1, loss.item(), L_graph, L_edge_weights, L_disc, L_ae))
 
+                if self.use_cuda:
+                    torch.cuda.empty_cache()
 
 
+            del loss
 
             # store loss values for learning curve
             self.loss_seq.append(loss.item())
@@ -366,6 +373,7 @@ class RegionEncoder(nn.Module):
 
 
 if __name__ == "__main__":
+
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
@@ -385,7 +393,7 @@ if __name__ == "__main__":
     epochs = 50
     learning_rate = .1
     neg_samples_disc = 10
-    batch_size = 10
+    batch_size = 25
 
 
     if len(sys.argv) > 1:
