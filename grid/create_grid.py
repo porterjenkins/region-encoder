@@ -547,7 +547,7 @@ class RegionGrid:
         mtx_norm[idx_nan] = 0.0
         return mtx_norm
 
-    def write_edge_list(self, fname):
+    def write_adj_list(self, fname):
         """
         Write adjacency list to file using adjacency matrix
         :param fname:
@@ -563,6 +563,15 @@ class RegionGrid:
                     else:
                         f.write(str(neighbor) + " ")
                 f.write("\n")
+
+    def write_edge_list(self, fname):
+
+        with open(fname, 'w') as f:
+            for i, row in enumerate(self.adj_matrix):
+                adj_list = numpy.where(row > 0.0)[0].astype(numpy.int32)
+                for j, neighbor in enumerate(adj_list):
+                    f.write("{} {}\n".format(str(i), str(neighbor)))
+
 
 
 
