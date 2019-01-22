@@ -404,4 +404,4 @@ if __name__ == "__main__":
         embedding = mod.embedding.data.numpy()
 
     write_embeddings(arr=embedding, n_nodes=n_nodes, fname=c['embedding_file'])
-    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=True)
+    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=False)
