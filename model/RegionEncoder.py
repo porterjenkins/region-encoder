@@ -376,8 +376,8 @@ if __name__ == "__main__":
     h_dim_img = 32
     h_dim_size = int(c['hidden_dim_size'])
     lambda_ae = .5
-    lambda_edge = 0.05
-    lambda_g = 1.0
+    lambda_edge = 0.1
+    lambda_g = 0.1
     neg_samples_gcn = 10
     epochs = 50
     learning_rate = .1
