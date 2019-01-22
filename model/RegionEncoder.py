@@ -275,7 +275,9 @@ class RegionEncoder(nn.Module):
             print('Updating Graph Weights:')
             for graph_step in range(n_graph_updates):
                 if self.use_cuda:
-                    print("CUDA Memory: {}".format(torch.cuda.memory_allocated()))
+                    cuda_bytes = torch.cuda.memory_allocated()
+                    cuda_gb = cuda_bytes / 1e9
+                    print("CUDA Memory: {} GB".format(cuda_gb))
                 optimizer.zero_grad()
                 # FIX: Weight_img - UPDATE: Weights_graph, Weights_disc
                 logits, h_global, graph_proximity, H_graph, h_graph_neg, h_image_neg, _, _ = self.forward(X, H_img, H_graph)
@@ -312,6 +314,10 @@ class RegionEncoder(nn.Module):
             print("Updating Image Weights:")
             n_steps = int(n_samples / batch_size)
             for step in range(n_steps):
+                if self.use_cuda:
+                    cuda_bytes = torch.cuda.memory_allocated()
+                    cuda_gb = cuda_bytes / 1e9
+                    print("CUDA Memory: {} GB".format(cuda_gb))
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
