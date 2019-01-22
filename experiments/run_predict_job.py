@@ -18,7 +18,7 @@ else:
     task = sys.argv[1]
     estimator = sys.argv[2]
     try:
-       n_epochs = sys.argv[3]
+       n_epochs = int(sys.argv[3])
     except IndexError:
         n_epochs = 25
 
@@ -171,7 +171,7 @@ results.append(['Naive + raw features', raw_features_mean[0], raw_features_std[0
 
 raw_features_img_mean = np.mean(raw_features_img_err, axis=0)
 raw_features_img_std = np.std(raw_features_img_err, axis=0)
-results.append(['Naive + raw features + img kmeans', raw_features_img_mean[0], raw_features_img_std[0], raw_features_img_mean[1], raw_features_img_std[1]])
+results.append(['Naive+raw features+kmeans', raw_features_img_mean[0], raw_features_img_std[0], raw_features_img_mean[1], raw_features_img_std[1]])
 
 deepwalk_err_mean = np.mean(deepwalk_err, axis=0)
 deepwalk_err_std = np.std(deepwalk_err, axis=0)
