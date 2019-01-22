@@ -11,7 +11,7 @@ from config import get_config
 import numpy as np
 import matplotlib.pyplot as plt
 from grid.create_grid import RegionGrid
-from model.utils import write_embeddings
+from model.utils import write_embeddings, memReport, cpuStats
 
 
 class RegionEncoder(nn.Module):
@@ -140,6 +140,7 @@ class RegionEncoder(nn.Module):
         L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights + reg
 
         return L
+
 
     def __gen_eta(self, pos_tens, neg_tens):
 
@@ -300,7 +301,7 @@ class RegionEncoder(nn.Module):
                 # regularize weights
                 weight_decay = self.weight_decay()
                 loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae, weight_decay)
-                loss.backward(retain_graph=True, create_graph=False)
+                loss.backward()
                 optimizer.step()
 
 
@@ -310,6 +311,8 @@ class RegionEncoder(nn.Module):
                 # FIX: Weights_graph -- UPDATE: Weights_img, Weights_disc
                 permute_idx = np.random.permutation(np.arange(n_samples))
 
+                #memReport()
+                cpuStats()
 
             print("Updating Image Weights:")
             n_steps = int(n_samples / batch_size)
@@ -344,12 +347,12 @@ class RegionEncoder(nn.Module):
 
                 # regularize weights
                 weight_decay = self.weight_decay()
-                loss = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae, weight_decay)
+                loss_inner = self.loss_function(L_graph, L_edge_weights, L_disc, L_ae, weight_decay)
                 #if step == (n_steps - 1):
                 #    loss.backward(retain_graph=False)
                 #else:
 
-                loss.backward(retain_graph=True)
+                loss_inner.backward(retain_graph=True)
                 optimizer.step()
 
 
@@ -358,13 +361,15 @@ class RegionEncoder(nn.Module):
 
                 if self.use_cuda:
                     torch.cuda.empty_cache()
-                    
+
             # store loss values for learning curve
             self.loss_seq.append(loss.item())
             self.loss_seq_gcn.append(self.lambda_g * L_graph.item())
             self.loss_seq_edge.append(self.lambda_edge * L_edge_weights.item())
             self.loss_seq_disc.append(L_disc.item())
             self.loss_seq_ae.append(self.lambda_ae * L_ae.item())
+
+
 
             if np.isnan(self.loss_seq[-1]):
                 print("Exploding/Vanishing gradient: loss = nan")
@@ -374,6 +379,8 @@ class RegionEncoder(nn.Module):
                     "Terminating early: Epoch: {}, Train Loss {:.4f} (gcn: {:.4f}, edge: {:.4f}, discriminator: {:.4f}"
                     " autoencoder: {:.4f})".format(i + 1, self.loss_seq[-1], L_graph, L_edge_weights, L_disc, L_ae))
                 break
+
+            del loss
 
         self.embedding = h_global
 
