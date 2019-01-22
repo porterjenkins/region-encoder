@@ -5,7 +5,10 @@ __pycache__/
 config.json
 
 # deepwalk library
-deepwalk-master
+model/deepwalk-master
+
+# node2vec library
+model/node2vec
 
 chicago
 

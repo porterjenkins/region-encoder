@@ -26,7 +26,7 @@ class DWparams(object):
 # Configure project
 config = get_config()
 region_grid = RegionGrid(config=config)
-region_grid.write_edge_list(config['edge_list_file'])
+region_grid.write_adj_list(config['adj_list_file'])
 h_dim_size = int(config['hidden_dim_size'])
 
 args = DWparams(input=config['edge_list_file'],
