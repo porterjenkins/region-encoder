@@ -232,7 +232,7 @@ class RegionEncoder(nn.Module):
             return False
 
     def run_train_job(self, region_grid, epochs, lr, batch_size, tol=.001, tol_order=5, n_graph_updates=2):
-        region_grid.img_tens_get_size()
+
         optimizer = self.get_optimizer(lr=lr)
         region_mtx_map = region_grid.matrix_idx_map
 
@@ -244,6 +244,8 @@ class RegionEncoder(nn.Module):
         # preprocess step for graph matrices
         A_hat = GCN.preprocess_adj(A)
         D_hat = GCN.preprocess_degree(D)
+
+        region_grid.arr_size(region_grid.img_tensor)
 
         # Cast matrices to torch.tensor
         A_hat = torch.from_numpy(A_hat).type(torch.FloatTensor)
@@ -378,14 +380,18 @@ if __name__ == "__main__":
     lambda_ae = .5
     lambda_edge = .1
     lambda_g = .1
+    context_gcn = 4
     neg_samples_gcn = 10
     epochs = 50
     learning_rate = .1
+    neg_samples_disc = 10
+    batch_size = 10
 
 
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
+        batch_size = int(sys.argv[3])
 
     mod = RegionEncoder(n_nodes=n_nodes,
                         n_nodal_features=n_nodal_features,
@@ -395,8 +401,11 @@ if __name__ == "__main__":
                         lambda_edge=lambda_edge,
                         lambda_g=lambda_g,
                         neg_samples_gcn=neg_samples_gcn,
-                        h_dim_size=h_dim_size)
-    mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3, batch_size=10, n_graph_updates=1)
+                        h_dim_size=h_dim_size,
+                        context_gcn=context_gcn,
+                        neg_samples_disc=neg_samples_disc)
+    mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3, batch_size=batch_size,
+                      n_graph_updates=1)
 
     if torch.cuda.is_available():
         embedding = mod.embedding.data.cpu().numpy()
