@@ -1,8 +1,6 @@
 import pandas as pd
 import torch
 import gc
-import sys
-import psutil
 import os
 
 def write_embeddings(arr, n_nodes, fname):
@@ -69,6 +67,7 @@ def memReport():
 
 
 def cpuStats():
+    import psutil
     #print(sys.version)
     print(psutil.cpu_percent())
     print(psutil.virtual_memory())  # physical memory usage
