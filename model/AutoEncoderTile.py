@@ -83,14 +83,16 @@ class AutoEncoder(nn.Module):
 
     @staticmethod
     def triplet_loss(patch, neighbor, distant, l=1, m=0.1):
-        l_n = torch.norm(patch - neighbor)
-        l_d = torch.norm(patch - distant)
+        l_n = torch.norm(patch - neighbor, dim=1)
+        l_d = torch.norm(patch - distant, dim=1)
         l_nd = l_n - l_d
-        loss = F.relu(l_nd + m)
-        loss += l * (torch.norm(patch) + torch.norm(neighbor) + torch.norm(distant))
+        loss_ind = F.relu(l_nd + m)
+        penalty = (torch.norm(patch, dim=1) + torch.norm(neighbor, dim=1) + torch.norm(distant, dim=1))
+        loss_ind_penalty = loss_ind + l * penalty
+        loss = torch.sum(loss_ind_penalty)
         return loss
 
-    def run_train_job(self, n_epoch, img_tensor, lr=.1):
+    def run_train_job(self, n_epoch, img_tensor, lr=.1, batch_size=25):
         if self.cuda:
             img_tensor = img_tensor.cuda()
         optimizer = self.get_optimizer(lr)
@@ -100,7 +102,7 @@ class AutoEncoder(nn.Module):
         if self.cuda:
             hidden_state = hidden_state.cuda()
 
-        batch_size = 5
+
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             permute_idx = np.random.permutation(np.arange(n_samples))
             for step in range(int(n_samples / batch_size)):
@@ -141,7 +143,7 @@ if __name__ == "__main__":
         learning_rate = float(sys.argv[2])
     else:
         epochs = 25
-        learning_rate = .1
+        learning_rate = .05
 
     c = get_config()
     region_grid = RegionGrid(config=c)
