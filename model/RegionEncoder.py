@@ -66,42 +66,26 @@ class RegionEncoder(nn.Module):
         self.loss_seq_ae = []
         self.use_cuda = torch.cuda.is_available()
 
-    def forward(self, X, H_img, H_graph, img_batch=None, update_img_weights=False, batch_idx=None):
-        """
+    def forward(self, X, img_tensor):
 
-        :param X:
-        :param img_batch:
-        :param H_img:
-        :param update_img_weight:
-        :return:
-        """
+        # Forward step for graph data
+        h_graph = self.graph_conv_net.forward(X)
+        graph_proximity = GCN.get_weighted_proximity(h_graph)
 
-        if update_img_weights:
-            # Forward step for image data
-            image_hat, h_image_step = self.auto_encoder.forward(img_batch)
-            # Update Hidden State for images
-            H_img[batch_idx, :] = h_image_step
-        else:
-            # Forward step for graph data
-            h_graph_step = self.graph_conv_net.forward(X)
-            # Update Hidden State for graph
-            H_graph = h_graph_step
-            #image_hat, h_image_step = self.auto_encoder.forward(H_img, decode_only=True)
-            image_hat = None
-
-        graph_proximity = GCN.get_weighted_proximity(H_graph)
+        # Forward step for image data
+        image_hat, h_image = self.auto_encoder.forward(img_tensor)
 
         # generate negative samples for discriminator
-        h_graph_neg, h_img_neg = self.__gen_neg_samples_disc(H_graph, H_img)
+        h_graph_neg, h_img_neg = self.__gen_neg_samples_disc(h_graph, h_image)
 
         # concat positive and negatives samples for discriminator
-        h_graph_cat = torch.cat([H_graph, h_graph_neg], dim=0)
-        h_img_cat = torch.cat([H_img, h_img_neg], dim=0)
+        h_graph_cat = torch.cat([h_graph, h_graph_neg], dim=0)
+        h_img_cat = torch.cat([h_image, h_img_neg], dim=0)
 
         # forward step for discriminator (all data)
         logits, h_global = self.discriminator.forward(x=h_graph_cat, z=h_img_cat, activation=False)
 
-        return logits, h_global, graph_proximity, H_graph, h_graph_neg, h_img_neg, H_img, image_hat
+        return logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg, h_img_neg
 
     def weight_decay(self):
         reg = 0
@@ -254,7 +238,6 @@ class RegionEncoder(nn.Module):
         img_tensor = torch.Tensor(region_grid.img_tensor)
 
         batch_size = A.shape[0]
-        region_grid.img_tens_get_size()
         print("Beginning training job: epochs: {}, batch size: {}, learning rate:{}".format(epochs, batch_size,
                                                                                             lr))
 
