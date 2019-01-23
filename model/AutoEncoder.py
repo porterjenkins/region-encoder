@@ -11,12 +11,12 @@ from model.utils import write_embeddings
 
 class ViewEncode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24 * 48 * 48)
+        return input.view(-1, 24 * 11 * 11)
 
 
 class ViewDecode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24, 48, 48)
+        return input.view(-1, 24, 11, 11)
 
 
 class Tan(nn.Module):
@@ -40,7 +40,7 @@ class AutoEncoder(nn.Module):
             ('relu2', nn.ReLU()),
             ('pool2', nn.MaxPool2d(2, 2)),
             ('view', ViewEncode()),
-            ('l1', nn.Linear(24 * 48 * 48, 120)),
+            ('l1', nn.Linear(24 * 11 * 11, 120)),
             ('relu3', nn.ReLU()),
             ('l2', nn.Linear(120, 84)),
             ('relu4', nn.ReLU()),
@@ -53,7 +53,7 @@ class AutoEncoder(nn.Module):
             nn.ReLU(),
             nn.Linear(84, 120),
             nn.ReLU(),
-            nn.Linear(120, 24 * 48 * 48),
+            nn.Linear(120, 24 * 11 * 11),
             nn.ReLU(),
             ViewDecode(),
             nn.Conv2d(24, 6, 3),
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     img_tensor = torch.Tensor(region_grid.img_tensor)
     h_dim_size = int(c['hidden_dim_size'])
 
-    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=h_dim_size)
+    auto_encoder = AutoEncoder(img_dims=(50, 50), h_dim_size=h_dim_size)
     embedding = auto_encoder.run_train_job(n_epoch=epochs, img_tensor=img_tensor, lr=learning_rate)
 
     if torch.cuda.is_available():

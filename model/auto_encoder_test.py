@@ -28,14 +28,14 @@ class AutoEncoder(nn.Module):
         # Convolutional Layer
         self.conv2 = nn.Conv2d(6, 24, 3)
         # Three fully connected layers
-        self.fc1 = nn.Linear(24 * 48 * 48, 120)
+        self.fc1 = nn.Linear(24 * 11 * 11, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, h_dim_size)
 
         ### Decoder
         self.fc4 = nn.Linear(h_dim_size, 84)
         self.fc5 = nn.Linear(84, 120)
-        self.fc6 = nn.Linear(120, 24 * 48 * 48)
+        self.fc6 = nn.Linear(120, 24 * 11 * 11)
         self.conv3 = nn.Conv2d(24, 6, 3)
         self.up_sample3 = nn.UpsamplingBilinear2d((14, 14))
         self.conv4 = nn.Conv2d(6, 3, 3)
@@ -51,7 +51,7 @@ class AutoEncoder(nn.Module):
         #print(x.shape)
         x = self.pool(F.relu(self.conv2(x)))
         #print(x.shape)
-        x = x.view(-1, 24 * 48 * 48)
+        x = x.view(-1, 24 * 11 * 11)
         #print(x.shape)
         x = F.relu(self.fc1(x))
         #print(x.shape)
@@ -69,7 +69,7 @@ class AutoEncoder(nn.Module):
         x = F.relu(self.fc6(x))
         #print(x.shape)
 
-        x = x.view(-1, 24, 48, 48)
+        x = x.view(-1, 24, 11, 11)
         #print(x.shape)
 
         x = self.up_sample3(F.relu(self.conv3(x)))
@@ -175,5 +175,5 @@ if __name__ == "__main__":
     img_tensor = torch.Tensor(region_grid.img_tensor)
     h_dim_size = int(c['hidden_dim_size'])
 
-    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=h_dim_size)
+    auto_encoder = AutoEncoder(img_dims=(50, 50), h_dim_size=h_dim_size)
     embedding = auto_encoder.run_train_job(n_epoch=epochs, img_tensor=img_tensor, lr=learning_rate)
