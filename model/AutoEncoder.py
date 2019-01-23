@@ -11,12 +11,12 @@ from model.utils import write_embeddings
 
 class ViewEncode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24 * 48 * 48)
+        return input.view(-1, 24 * 11 * 11)
 
 
 class ViewDecode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24, 48, 48)
+        return input.view(-1, 24, 11, 11)
 
 
 class Tan(nn.Module):
@@ -40,7 +40,7 @@ class AutoEncoder(nn.Module):
             ('relu2', nn.ReLU()),
             ('pool2', nn.MaxPool2d(2, 2)),
             ('view', ViewEncode()),
-            ('l1', nn.Linear(24 * 48 * 48, 120)),
+            ('l1', nn.Linear(24 * 11 * 11, 120)),
             ('relu3', nn.ReLU()),
             ('l2', nn.Linear(120, 84)),
             ('relu4', nn.ReLU()),
@@ -53,7 +53,7 @@ class AutoEncoder(nn.Module):
             nn.ReLU(),
             nn.Linear(84, 120),
             nn.ReLU(),
-            nn.Linear(120, 24 * 48 * 48),
+            nn.Linear(120, 24 * 11 * 11),
             nn.ReLU(),
             ViewDecode(),
             nn.Conv2d(24, 6, 3),
@@ -106,7 +106,7 @@ class AutoEncoder(nn.Module):
 
         return mse
 
-    def run_train_job(self, n_epoch, img_tensor, lr=.1, noise=.25):
+    def run_train_job(self, n_epoch, batch_size, img_tensor, lr=.1, noise=.25):
         if self.cuda:
             img_tensor = img_tensor.cuda()
         optimizer = self.get_optimizer(lr)
@@ -117,7 +117,6 @@ class AutoEncoder(nn.Module):
             hidden_state = hidden_state.cuda()
 
 
-        batch_size = 5
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             permute_idx = np.random.permutation(np.arange(n_samples))
             for step in range(int(n_samples / batch_size)):
@@ -170,9 +169,11 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
+        batch_size = int(sys.argv[3])
     else:
         epochs = 25
         learning_rate = .1
+        batch_size = 20
 
     c = get_config()
     region_grid = RegionGrid(config=c)
@@ -183,8 +184,9 @@ if __name__ == "__main__":
     img_tensor = torch.Tensor(region_grid.img_tensor)
     h_dim_size = int(c['hidden_dim_size'])
 
-    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=h_dim_size)
-    embedding = auto_encoder.run_train_job(n_epoch=epochs, img_tensor=img_tensor, lr=learning_rate)
+    auto_encoder = AutoEncoder(img_dims=(50, 50), h_dim_size=h_dim_size)
+    embedding = auto_encoder.run_train_job(n_epoch=epochs, batch_size=batch_size, img_tensor=img_tensor,
+                                           lr=learning_rate)
 
     if torch.cuda.is_available():
         embedding = embedding.data.cpu().numpy()
