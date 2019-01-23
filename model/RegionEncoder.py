@@ -12,7 +12,7 @@ from config import get_config
 import numpy as np
 import matplotlib.pyplot as plt
 from grid.create_grid import RegionGrid
-from model.utils import write_embeddings, memReport, cpuStats
+from model.utils import write_embeddings
 
 
 class RegionEncoder(nn.Module):
@@ -254,8 +254,8 @@ class RegionEncoder(nn.Module):
                 cuda_gb = cuda_bytes / 1e9
                 print("CUDA Memory: {:.4f} GB".format(cuda_gb))
 
-            else:
-                cpuStats()
+            #else:
+            #    cpuStats()
 
             # Add noise to images
             img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25, cuda=self.use_cuda)
