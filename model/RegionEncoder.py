@@ -326,6 +326,7 @@ if __name__ == "__main__":
     neg_samples_gcn = 10
     epochs = 50
     learning_rate = .1
+    img_dims = (50,50)
 
 
     if len(sys.argv) > 1:
@@ -340,7 +341,8 @@ if __name__ == "__main__":
                         lambda_edge=lambda_edge,
                         lambda_g=lambda_g,
                         neg_samples_gcn=neg_samples_gcn,
-                        h_dim_size=h_dim_size)
+                        h_dim_size=h_dim_size,
+                        img_dims=img_dims)
     mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
     if torch.cuda.is_available():
