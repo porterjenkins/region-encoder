@@ -89,7 +89,7 @@ class AutoEncoder(nn.Module):
         loss_ind = F.relu(l_nd + m)
         penalty = (torch.norm(patch, dim=1) + torch.norm(neighbor, dim=1) + torch.norm(distant, dim=1))
         loss_ind_penalty = loss_ind + l * penalty
-        loss = torch.sum(loss_ind_penalty)
+        loss = torch.mean(loss_ind_penalty)
         return loss
 
     def run_train_job(self, n_epoch, img_tensor, lr=.1, batch_size=25):
@@ -105,7 +105,9 @@ class AutoEncoder(nn.Module):
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             permute_idx = np.random.permutation(np.arange(n_samples))
-            for step in range(int(n_samples / batch_size)):
+            running_loss = 0
+            n_steps = int(n_samples / batch_size)
+            for step in range(n_steps):
                 start_idx = step * batch_size
                 end_idx = start_idx + batch_size
                 batch_idx = permute_idx[start_idx:end_idx]
@@ -114,9 +116,10 @@ class AutoEncoder(nn.Module):
                 triplets = region_grid.create_triplets(batch_idx, img_tensor)
 
                 # forward
-                h_batch, neighbor, distance = self.forward(x=triplets[0], neighbor=triplets[1], distance=triplets[0])
+                h_batch, neighbor, distance = self.forward(x=triplets[0], neighbor=triplets[1], distance=triplets[2])
 
                 loss = self.triplet_loss(h_batch, neighbor, distance)
+                running_loss += loss.item()
 
                 # Update matrix of learned representations
                 hidden_state[batch_idx, :] = h_batch[0]
@@ -127,7 +130,8 @@ class AutoEncoder(nn.Module):
                 loss.backward()
                 optimizer.step()
 
-                print("Epoch: {}, step: {}, Train Loss {:.4f}".format(epoch, step, loss.item()))
+            epoch_loss = running_loss / n_steps
+            print("Epoch: {}, Train Loss {:.4f}".format(epoch, epoch_loss))
         print('Finished Training')
 
         return hidden_state
