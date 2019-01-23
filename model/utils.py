@@ -1,5 +1,9 @@
 import pandas as pd
-
+import torch
+import gc
+import sys
+import psutil
+import os
 
 def write_embeddings(arr, n_nodes, fname):
 
@@ -56,3 +60,19 @@ def load_embedding(fname):
     feature_mtx = pd.DataFrame(deepwalk_features, index=idx)
     feature_mtx.sort_index(inplace=True)
     return feature_mtx.values
+
+
+def memReport():
+    for obj in gc.get_objects():
+        if torch.is_tensor(obj):
+            print(type(obj), obj.size())
+
+
+def cpuStats():
+    #print(sys.version)
+    print(psutil.cpu_percent())
+    print(psutil.virtual_memory())  # physical memory usage
+    pid = os.getpid()
+    py = psutil.Process(pid)
+    memoryUse = py.memory_info()[0] / 2. ** 30  # memory use in GB...I think
+    print('memory GB: {:.4f}'.format(memoryUse))
