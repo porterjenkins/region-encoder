@@ -69,10 +69,14 @@ class AutoEncoder(nn.Module):
             self.encoder = self.encoder.cuda()
             self.decoder = self.decoder.cuda()
 
-    def forward(self, x):
+    def forward(self, x, decode_only=False):
 
-        h = self.encoder(x)
-        x = self.decoder(h)
+        if decode_only:
+            h = x
+            x = self.decoder(h)
+        else:
+            h = self.encoder(x)
+            x = self.decoder(h)
 
         return x, h
 
@@ -116,6 +120,8 @@ class AutoEncoder(nn.Module):
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             permute_idx = np.random.permutation(np.arange(n_samples))
             for step in range(int(n_samples / batch_size)):
+                # zero the parameter gradients
+                optimizer.zero_grad()
                 start_idx = step * batch_size
                 end_idx = start_idx + batch_size
                 batch_idx = permute_idx[start_idx:end_idx]

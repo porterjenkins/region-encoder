@@ -3,19 +3,19 @@ import os
 import pickle
 import random
 import sys
-
+# this should add files properly
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from config import get_config
 import numpy
 import pandas
 from geopy.distance import distance
 from scipy import ndimage
 from scipy.spatial.distance import euclidean
 
-# this should add files properly
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 logging.basicConfig(filename='region.log', filemode='w', level=logging.INFO,
                     format='%(asctime)s %(message)s')
 
-from config import get_config
 
 
 class RegionGrid:
@@ -478,8 +478,9 @@ class RegionGrid:
             poi = pickle.load(poi_f)
         return poi
 
-    def img_tens_get_size(self):
-        b = self.img_tensor.nbytes
+    @staticmethod
+    def arr_size(arr):
+        b = arr.nbytes
         gb = b / 1000000000
         print("array size: {} GB".format(gb))
         return gb
@@ -695,27 +696,34 @@ def get_images_for_grid(region_grid, clear_dir=False):
 
 
 if __name__ == '__main__':
-    c = get_config()
-    region_grid = RegionGrid(config=c)
-    tmp = region_grid.feature_matrix.sum(axis=1)
-    #region_grid.load_img_data(std_img=True)
-    region_grid.load_weighted_mtx()
-    region_grid.load_housing_data(c['housing_data_file'])
+    from memory_profiler import profile
+    @profile
+    def main():
+        c = get_config()
+        region_grid = RegionGrid(config=c)
+        tmp = region_grid.feature_matrix.sum(axis=1)
+        region_grid.load_img_data(std_img=True)
+        region_grid.load_weighted_mtx()
+        region_grid.load_housing_data(c['housing_data_file'])
 
 
 
 
-    A = region_grid.adj_matrix
-    D = region_grid.degree_matrix
-    W = region_grid.weighted_mtx
+        A = region_grid.adj_matrix
+        D = region_grid.degree_matrix
+        region_grid.arr_size(A)
+        region_grid.arr_size(D)
+        region_grid.arr_size(region_grid.feature_matrix)
 
-    #I = region_grid.img_tensor
+        W = region_grid.weighted_mtx
 
-    print(W.shape)
-    print(A.shape)
-    print(D.shape)
-    #print(I.shape)
-    y_house = region_grid.get_target_var("house_price")
-    print(y_house)
+        I = region_grid.img_tensor
 
-    #print(I)
+        print(W.shape)
+        print(A.shape)
+        print(D.shape)
+        #print(I.shape)
+        y_house = region_grid.get_target_var("house_price")
+        print(y_house)
+
+    main()

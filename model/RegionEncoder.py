@@ -1,6 +1,5 @@
 import os
 import sys
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.nn as nn
@@ -12,7 +11,7 @@ from config import get_config
 import numpy as np
 import matplotlib.pyplot as plt
 from grid.create_grid import RegionGrid
-from model.utils import write_embeddings
+from model.utils import write_embeddings, memReport, cpuStats
 
 
 class RegionEncoder(nn.Module):
@@ -52,6 +51,9 @@ class RegionEncoder(nn.Module):
         self.neg_samples_gcn = neg_samples_gcn
         self.context_gcn = context_gcn
         self.n_nodes = n_nodes
+        self.img_dims = img_dims
+        self.h_dim_img = h_dim_img
+        self.h_dim_graph = h_dim_graph
 
 
         # Final model hidden state
@@ -64,26 +66,42 @@ class RegionEncoder(nn.Module):
         self.loss_seq_ae = []
         self.use_cuda = torch.cuda.is_available()
 
-    def forward(self, X, img_tensor):
+    def forward(self, X, H_img, H_graph, img_batch=None, update_img_weights=False, batch_idx=None):
+        """
 
-        # Forward step for graph data
-        h_graph = self.graph_conv_net.forward(X)
-        graph_proximity = GCN.get_weighted_proximity(h_graph)
+        :param X:
+        :param img_batch:
+        :param H_img:
+        :param update_img_weight:
+        :return:
+        """
 
-        # Forward step for image data
-        image_hat, h_image = self.auto_encoder.forward(img_tensor)
+        if update_img_weights:
+            # Forward step for image data
+            image_hat, h_image_step = self.auto_encoder.forward(img_batch)
+            # Update Hidden State for images
+            H_img[batch_idx, :] = h_image_step
+        else:
+            # Forward step for graph data
+            h_graph_step = self.graph_conv_net.forward(X)
+            # Update Hidden State for graph
+            H_graph = h_graph_step
+            #image_hat, h_image_step = self.auto_encoder.forward(H_img, decode_only=True)
+            image_hat = None
+
+        graph_proximity = GCN.get_weighted_proximity(H_graph)
 
         # generate negative samples for discriminator
-        h_graph_neg, h_img_neg = self.__gen_neg_samples_disc(h_graph, h_image)
+        h_graph_neg, h_img_neg = self.__gen_neg_samples_disc(H_graph, H_img)
 
         # concat positive and negatives samples for discriminator
-        h_graph_cat = torch.cat([h_graph, h_graph_neg], dim=0)
-        h_img_cat = torch.cat([h_image, h_img_neg], dim=0)
+        h_graph_cat = torch.cat([H_graph, h_graph_neg], dim=0)
+        h_img_cat = torch.cat([H_img, h_img_neg], dim=0)
 
         # forward step for discriminator (all data)
         logits, h_global = self.discriminator.forward(x=h_graph_cat, z=h_img_cat, activation=False)
 
-        return logits, h_global, image_hat, graph_proximity, h_graph, h_image, h_graph_neg, h_img_neg
+        return logits, h_global, graph_proximity, H_graph, h_graph_neg, h_img_neg, H_img, image_hat
 
     def weight_decay(self):
         reg = 0
@@ -122,6 +140,7 @@ class RegionEncoder(nn.Module):
         L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights + reg
 
         return L
+
 
     def __gen_eta(self, pos_tens, neg_tens):
 
@@ -309,6 +328,7 @@ class RegionEncoder(nn.Module):
 
 
 if __name__ == "__main__":
+
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
@@ -323,6 +343,7 @@ if __name__ == "__main__":
     lambda_ae = .5
     lambda_edge = .1
     lambda_g = .1
+    context_gcn = 4
     neg_samples_gcn = 10
     epochs = 50
     learning_rate = .1
@@ -332,6 +353,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
+        batch_size = int(sys.argv[3])
 
     mod = RegionEncoder(n_nodes=n_nodes,
                         n_nodal_features=n_nodal_features,
@@ -342,6 +364,7 @@ if __name__ == "__main__":
                         lambda_g=lambda_g,
                         neg_samples_gcn=neg_samples_gcn,
                         h_dim_size=h_dim_size,
+
                         img_dims=img_dims)
     mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
@@ -351,4 +374,4 @@ if __name__ == "__main__":
         embedding = mod.embedding.data.numpy()
 
     write_embeddings(arr=embedding, n_nodes=n_nodes, fname=c['embedding_file'])
-    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=True)
+    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=False)

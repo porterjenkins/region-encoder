@@ -1,7 +1,8 @@
 import pandas as pd
 import torch
 import gc
-import os
+import sys
+import psutil
 
 def write_embeddings(arr, n_nodes, fname):
 
@@ -67,7 +68,7 @@ def memReport():
 
 
 def cpuStats():
-    import psutil
+
     #print(sys.version)
     print(psutil.cpu_percent())
     print(psutil.virtual_memory())  # physical memory usage
@@ -75,3 +76,4 @@ def cpuStats():
     py = psutil.Process(pid)
     memoryUse = py.memory_info()[0] / 2. ** 30  # memory use in GB...I think
     print('memory GB: {:.4f}'.format(memoryUse))
+
