@@ -3,19 +3,19 @@ import os
 import pickle
 import random
 import sys
-
+# this should add files properly
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from config import get_config
 import numpy
 import pandas
 from geopy.distance import distance
 from scipy import ndimage
 from scipy.spatial.distance import euclidean
 
-# this should add files properly
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 logging.basicConfig(filename='region.log', filemode='w', level=logging.INFO,
                     format='%(asctime)s %(message)s')
 
-from config import get_config
 
 
 class RegionGrid:
@@ -181,7 +181,7 @@ class RegionGrid:
         df['region_coor'] = reg_coor
         return df
 
-    def load_img_data(self, img_dims=(200, 200), std_img=True):
+    def load_img_data(self, img_dims=(50,50), std_img=True):
 
         idx_cntr = 0
         # init image tensor: n_samples x n_channels x n_rows x n_cols
@@ -470,8 +470,9 @@ class RegionGrid:
             poi = pickle.load(poi_f)
         return poi
 
-    def img_tens_get_size(self):
-        b = self.img_tensor.nbytes
+    @staticmethod
+    def arr_size(arr):
+        b = arr.nbytes
         gb = b / 1000000000
         print("array size: {} GB".format(gb))
         return gb
@@ -539,7 +540,7 @@ class RegionGrid:
         mtx_norm[idx_nan] = 0.0
         return mtx_norm
 
-    def write_edge_list(self, fname):
+    def write_adj_list(self, fname):
         """
         Write adjacency list to file using adjacency matrix
         :param fname:
@@ -568,6 +569,17 @@ class RegionGrid:
         n = tensor[n, :, :, :]
         d = tensor[d, :, :, :]
         return patch, n, d
+
+    def write_edge_list(self, fname):
+
+        with open(fname, 'w') as f:
+            for i, row in enumerate(self.adj_matrix):
+                adj_list = numpy.where(row > 0.0)[0].astype(numpy.int32)
+                for j, neighbor in enumerate(adj_list):
+                    f.write("{} {}\n".format(str(i), str(neighbor)))
+
+
+
 
 
 class Region:
@@ -685,7 +697,7 @@ class Region:
 def get_images_for_grid(region_grid, clear_dir=False):
     from image.image_retrieval import get_images_for_all_no_marker, compress_images
     get_images_for_all_no_marker(region_grid, clear_dir=clear_dir)
-    compress_images(region_grid.img_dir)
+    compress_images(region_grid.img_dir, resize=(50,50))
 
 
 if __name__ == '__main__':
@@ -710,3 +722,4 @@ if __name__ == '__main__':
     print(y_house)
 
     # print(I)
+

@@ -1,6 +1,5 @@
 import os
 import sys
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.nn as nn
@@ -12,7 +11,7 @@ from config import get_config
 import numpy as np
 import matplotlib.pyplot as plt
 from grid.create_grid import RegionGrid
-from model.utils import write_embeddings
+from model.utils import write_embeddings, memReport, cpuStats
 
 
 class RegionEncoder(nn.Module):
@@ -52,6 +51,9 @@ class RegionEncoder(nn.Module):
         self.neg_samples_gcn = neg_samples_gcn
         self.context_gcn = context_gcn
         self.n_nodes = n_nodes
+        self.img_dims = img_dims
+        self.h_dim_img = h_dim_img
+        self.h_dim_graph = h_dim_graph
 
 
         # Final model hidden state
@@ -122,6 +124,7 @@ class RegionEncoder(nn.Module):
         L = L_disc + self.lambda_ae * L_ae + self.lambda_g * L_graph + self.lambda_edge * L_edge_weights + reg
 
         return L
+
 
     def __gen_eta(self, pos_tens, neg_tens):
 
@@ -235,7 +238,6 @@ class RegionEncoder(nn.Module):
         img_tensor = torch.Tensor(region_grid.img_tensor)
 
         batch_size = A.shape[0]
-        region_grid.img_tens_get_size()
         print("Beginning training job: epochs: {}, batch size: {}, learning rate:{}".format(epochs, batch_size,
                                                                                             lr))
 
@@ -248,6 +250,15 @@ class RegionEncoder(nn.Module):
 
         for i in range(epochs):
             optimizer.zero_grad()
+
+            if self.use_cuda:
+                cuda_bytes = torch.cuda.memory_allocated()
+                cuda_gb = cuda_bytes / 1e9
+                print("CUDA Memory: {:.4f} GB".format(cuda_gb))
+
+            #else:
+            #    cpuStats()
+
             # Add noise to images
             img_noisey = AutoEncoder.add_noise(img_tensor, noise_factor=.25, cuda=self.use_cuda)
 
@@ -300,6 +311,7 @@ class RegionEncoder(nn.Module):
 
 
 if __name__ == "__main__":
+
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
@@ -314,14 +326,17 @@ if __name__ == "__main__":
     lambda_ae = .5
     lambda_edge = .1
     lambda_g = .1
+    context_gcn = 4
     neg_samples_gcn = 10
     epochs = 50
     learning_rate = .1
+    img_dims = (50,50)
 
 
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
+        batch_size = int(sys.argv[3])
 
     mod = RegionEncoder(n_nodes=n_nodes,
                         n_nodal_features=n_nodal_features,
@@ -331,7 +346,9 @@ if __name__ == "__main__":
                         lambda_edge=lambda_edge,
                         lambda_g=lambda_g,
                         neg_samples_gcn=neg_samples_gcn,
-                        h_dim_size=h_dim_size)
+                        h_dim_size=h_dim_size,
+
+                        img_dims=img_dims)
     mod.run_train_job(region_grid, epochs=epochs, lr=learning_rate, tol_order=3)
 
     if torch.cuda.is_available():
@@ -340,4 +357,4 @@ if __name__ == "__main__":
         embedding = mod.embedding.data.numpy()
 
     write_embeddings(arr=embedding, n_nodes=n_nodes, fname=c['embedding_file'])
-    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=True)
+    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=False)

@@ -80,7 +80,7 @@ def download_image(url, fn):
         current_delay *= 2
 
 
-def compress_images(image_dir, resize=(200,200)):
+def compress_images(image_dir, resize=(50,50)):
     files = os.listdir(image_dir)
 
     for f in files:

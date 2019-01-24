@@ -18,7 +18,7 @@ else:
     task = sys.argv[1]
     estimator = sys.argv[2]
     try:
-       n_epochs = sys.argv[3]
+       n_epochs = int(sys.argv[3])
     except IndexError:
         n_epochs = 25
 
@@ -45,6 +45,7 @@ if task == 'house_price':
     naive_raw_feature_img_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, region_grid.feature_matrix,
                                                 region_grid.weighted_mtx, c['kmeans_file'])
     deepwalk_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'])
+    node2vec_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['node2vec_file'])
     re_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'])
     joint_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'], c['deepwalk_file'])
     nmf_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['nmf_file'])
@@ -62,6 +63,7 @@ elif task == 'traffic':
     naive_raw_feature_img_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, region_grid.feature_matrix,
                                                 region_grid.weighted_mtx, c['kmeans_file'])
     deepwalk_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'])
+    node2vec_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['node2vec_file'])
     re_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'])
     joint_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'], c['deepwalk_file'])
     nmf_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['nmf_file'])
@@ -81,6 +83,7 @@ naive_mod.get_features(input_data)
 naive_raw_feature_mod.get_features(input_data)
 naive_raw_feature_img_mod.get_features(input_data)
 deepwalk_mod.get_features(input_data)
+node2vec_mod.get_features(input_data)
 nmf_mod.get_features(input_data)
 re_mod.get_features(input_data)
 joint_mod.get_features(input_data)
@@ -94,6 +97,7 @@ naive_err = np.zeros((n_folds, 2))
 raw_features_err = np.zeros((n_folds, 2))
 raw_features_img_err = np.zeros((n_folds, 2))
 deepwalk_err = np.zeros((n_folds, 2))
+node2vec_err = np.zeros((n_folds, 2))
 embed_err = np.zeros((n_folds, 2))
 nmf_err = np.zeros((n_folds, 2))
 pca_err = np.zeros((n_folds, 2))
@@ -127,6 +131,11 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     rmse, mae = deepwalk_mod.train_eval(train_idx, test_idx, estimator)
     deepwalk_err[fold_cntr, 0] = rmse
     deepwalk_err[fold_cntr, 1] = mae
+
+    # Node2Vec Model
+    rmse, mae = node2vec_mod.train_eval(train_idx, test_idx, estimator)
+    node2vec_err[fold_cntr, 0] = rmse
+    node2vec_err[fold_cntr, 1] = mae
 
     # Matrix Factorization Model
     rmse, mae = nmf_mod.train_eval(train_idx, test_idx, estimator)
@@ -167,15 +176,19 @@ results.append(['Naive', naive_err_mean[0], naive_err_std[0], naive_err_mean[1],
 
 raw_features_mean = np.mean(raw_features_err, axis=0)
 raw_features_std = np.std(raw_features_err, axis=0)
-results.append(['Naive + raw features', raw_features_mean[0], raw_features_std[0], raw_features_mean[1], raw_features_std[1]])
+results.append(['raw features', raw_features_mean[0], raw_features_std[0], raw_features_mean[1], raw_features_std[1]])
 
 raw_features_img_mean = np.mean(raw_features_img_err, axis=0)
 raw_features_img_std = np.std(raw_features_img_err, axis=0)
-results.append(['Naive + raw features + img kmeans', raw_features_img_mean[0], raw_features_img_std[0], raw_features_img_mean[1], raw_features_img_std[1]])
+results.append(['raw features+kmeans', raw_features_img_mean[0], raw_features_img_std[0], raw_features_img_mean[1], raw_features_img_std[1]])
 
 deepwalk_err_mean = np.mean(deepwalk_err, axis=0)
 deepwalk_err_std = np.std(deepwalk_err, axis=0)
 results.append(['DeepWalk Embedding', deepwalk_err_mean[0], deepwalk_err_std[0], deepwalk_err_mean[1], deepwalk_err_std[1]])
+
+node2vec_err_mean = np.mean(node2vec_err, axis=0)
+node2vec_err_std = np.std(node2vec_err, axis=0)
+results.append(['Node2Vec Embedding', node2vec_err_mean[0], node2vec_err_std[0], node2vec_err_mean[1], node2vec_err_std[1]])
 
 nmf_err_mean = np.mean(nmf_err, axis=0)
 nmf_err_std = np.std(nmf_err, axis=0)
@@ -202,4 +215,4 @@ results.append(['RegionEncoder', embed_err_mean[0], embed_err_std[0], embed_err_
 results_df = pd.DataFrame(results, columns=['model', 'cv rmse', 'std rmse', 'cv mae', 'std mae'])
 print(results_df)
 
-results_df.to_csv("house-price-results.csv")
+results_df.to_csv("results/{}-{}-results.csv".format(task, estimator))
