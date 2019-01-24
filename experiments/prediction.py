@@ -66,7 +66,7 @@ class PredictionModel(object):
 
     def train_eval(self, train_idx, test_idx, model='xgb'):
 
-
+        # TODO: Fix random seed for all regressors?
         if model == 'xgb':
             trn = xgboost.DMatrix(self.X[train_idx, :], label=self.y[train_idx])
             tst = xgboost.DMatrix(self.X[test_idx, :], label=self.y[test_idx])
@@ -95,7 +95,7 @@ class PredictionModel(object):
         elif model == 'mlp':
 
             model = MLPRegressor(hidden_layer_sizes=(128,), activation='relu', solver='adam', alpha=.01, batch_size=100,
-                                 learning_rate_init=.05, max_iter=self.n_epochs)
+                                 learning_rate_init=.05, max_iter=self.n_epochs, random_state=1990)
             model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
             pred = model.predict(X=self.X[test_idx])
 

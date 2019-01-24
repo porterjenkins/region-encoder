@@ -25,7 +25,7 @@ class Tan(nn.Module):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, img_dims=(200,200), h_dim_size=32, cuda_override=False):
+    def __init__(self, img_dims=(50, 50), h_dim_size=32, cuda_override=False):
         super(AutoEncoder, self).__init__()
         self.cuda = torch.cuda.is_available() and not cuda_override
         print(f"Cuda Set to {self.cuda}")

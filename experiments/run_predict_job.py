@@ -53,6 +53,7 @@ if task == 'house_price':
     autoencoder_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
     joint_ae_dw = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'],
                                   c['autoencoder_embedding_file'])
+    tile2vec_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['tile2vec_file'])
 
 elif task == 'traffic':
     input_data = region_grid.load_traffic_data(c['traffic_data_file'])
@@ -69,7 +70,8 @@ elif task == 'traffic':
     nmf_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['nmf_file'])
     pca_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['pca_file'])
     autoencoder_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
-    joint_ae_dw = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'],
+    tile2vec_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['tile2vec_file'])
+    joint_ae_dw = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'],
                                   c['autoencoder_embedding_file'])
 
 
@@ -90,6 +92,7 @@ joint_mod.get_features(input_data)
 pca_mod.get_features(input_data)
 autoencoder_mod.get_features(input_data)
 joint_ae_dw.get_features(input_data)
+tile2vec_mod.get_features(input_data)
 
 k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=1990)
 
@@ -103,6 +106,7 @@ nmf_err = np.zeros((n_folds, 2))
 pca_err = np.zeros((n_folds, 2))
 ae_err = np.zeros((n_folds, 2))
 ae_dw_err = np.zeros((n_folds, 2))
+tile2vec_err = np.zeros((n_folds, 2))
 
 
 train_ind_arr = np.arange(deepwalk_mod.X.shape[0])
@@ -164,6 +168,11 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     ae_dw_err[fold_cntr, 0] = rmse
     ae_dw_err[fold_cntr, 1] = mae
 
+    # tile2vec model
+    rmse, mae = tile2vec_mod.train_eval(train_idx, test_idx, estimator)
+    tile2vec_err[fold_cntr, 0] = rmse
+    tile2vec_err[fold_cntr, 1] = mae
+
 
 
     fold_cntr += 1
@@ -205,6 +214,10 @@ results.append(['AutoEncoder', ae_err_mean[0], ae_err_std[0], ae_err_mean[1], ae
 joint_ae_dw_err_mean = np.mean(ae_dw_err, axis=0)
 joint_ae_dw_err_std = np.std(ae_dw_err, axis=0)
 results.append(['AutoEncoder + DeepWalk', joint_ae_dw_err_mean[0], joint_ae_dw_err_std[0], joint_ae_dw_err_mean[1], joint_ae_dw_err_std[1]])
+
+tile2vec_err_mean = np.mean(tile2vec_err, axis=0)
+tile2vec_err_std = np.std(tile2vec_err, axis=0)
+results.append(['Tile2Vec', tile2vec_err_mean[0], tile2vec_err_std[0], tile2vec_err_mean[1], tile2vec_err_std[1]])
 
 embed_err_mean = np.mean(embed_err, axis=0)
 embed_err_std = np.std(embed_err, axis=0)

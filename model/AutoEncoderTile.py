@@ -14,7 +14,7 @@ from model.utils import write_embeddings
 
 class ViewEncode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24 * 48 * 48)
+        return input.view(-1, 24 * 11 * 11)
 
 
 class Tan(nn.Module):
@@ -23,7 +23,7 @@ class Tan(nn.Module):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, img_dims=(200, 200), h_dim_size=32, cuda_override=False):
+    def __init__(self, img_dims=(50, 50), h_dim_size=32, cuda_override=False):
         super(AutoEncoder, self).__init__()
         self.cuda = torch.cuda.is_available() and not cuda_override
         print(f"Cuda Set to {self.cuda}")
@@ -38,7 +38,7 @@ class AutoEncoder(nn.Module):
             ('relu2', nn.ReLU()),
             ('pool2', nn.MaxPool2d(2, 2)),
             ('view', ViewEncode()),
-            ('l1', nn.Linear(24 * 48 * 48, 120)),
+            ('l1', nn.Linear(24 * 11 * 11, 120)),
             ('relu3', nn.ReLU()),
             ('l2', nn.Linear(120, 84)),
             ('relu4', nn.ReLU()),
@@ -102,7 +102,7 @@ class AutoEncoder(nn.Module):
         if self.cuda:
             hidden_state = hidden_state.cuda()
 
-
+        print("Beginning mini-batch training")
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             permute_idx = np.random.permutation(np.arange(n_samples))
             running_loss = 0
@@ -119,6 +119,8 @@ class AutoEncoder(nn.Module):
                 h_batch, neighbor, distance = self.forward(x=triplets[0], neighbor=triplets[1], distance=triplets[2])
 
                 loss = self.triplet_loss(h_batch, neighbor, distance)
+                if step % 10 == 0:
+                    print("----> step {} loss: {:.4f}".format(step, loss.item()))
                 running_loss += loss.item()
 
                 # Update matrix of learned representations
@@ -131,7 +133,7 @@ class AutoEncoder(nn.Module):
                 optimizer.step()
 
             epoch_loss = running_loss / n_steps
-            print("Epoch: {}, Train Loss {:.4f}".format(epoch, epoch_loss))
+            print("End of epoch: {} - Average Train Loss {:.4f}".format(epoch, epoch_loss))
         print('Finished Training')
 
         return hidden_state
@@ -145,19 +147,20 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
+        batch_size = int(sys.argv[3])
     else:
         epochs = 25
         learning_rate = .05
+        batch_size = 25
 
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
-    region_grid.img_tens_get_size()
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
     h_dim_size = int(c['hidden_dim_size'])
 
-    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=h_dim_size)
+    auto_encoder = AutoEncoder(img_dims=(50, 50), h_dim_size=h_dim_size)
     embedding = auto_encoder.run_train_job(n_epoch=epochs, img_tensor=img_tensor, lr=learning_rate)
 
     if torch.cuda.is_available():
@@ -165,4 +168,4 @@ if __name__ == "__main__":
     else:
         embedding = embedding.data.numpy()
 
-    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_embedding_file'])
+    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['tile2vec_file'])
