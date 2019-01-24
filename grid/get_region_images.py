@@ -8,4 +8,4 @@ from grid.create_grid import RegionGrid, get_images_for_grid
 c = get_config()
 region_grid = RegionGrid(config=c)
 
-get_images_for_grid(region_grid, clear_dir=True)
+get_images_for_grid(region_grid, clear_dir=True, compress=True)

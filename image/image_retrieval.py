@@ -24,7 +24,7 @@ def create_urls_no_marker(region_grid):
     return urls
 
 
-def create_url_for_region_no_marker(r, x=200, y=200):
+def create_url_for_region_no_marker(r, x=640, y=640):
     vmap = VisibleMap(maptype='satellite', size_x=x, size_y=y, key=key)
     if r.nw:
         vmap.add_latlon(str(r.nw[0]), str(r.nw[1]))

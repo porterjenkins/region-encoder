@@ -694,10 +694,11 @@ class Region:
         return mid
 
 
-def get_images_for_grid(region_grid, clear_dir=False):
+def get_images_for_grid(region_grid, clear_dir=False, compress=True):
     from image.image_retrieval import get_images_for_all_no_marker, compress_images
     get_images_for_all_no_marker(region_grid, clear_dir=clear_dir)
-    compress_images(region_grid.img_dir, resize=(50,50))
+    if compress:
+        compress_images(region_grid.img_dir, resize=(50,50))
 
 
 if __name__ == '__main__':
