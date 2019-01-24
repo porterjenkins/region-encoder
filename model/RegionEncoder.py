@@ -11,8 +11,7 @@ from config import get_config
 import numpy as np
 import matplotlib.pyplot as plt
 from grid.create_grid import RegionGrid
-from model.utils import write_embeddings, memReport, cpuStats
-
+from model.utils import write_embeddings
 
 class RegionEncoder(nn.Module):
     """
@@ -336,7 +335,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
-        batch_size = int(sys.argv[3])
 
     mod = RegionEncoder(n_nodes=n_nodes,
                         n_nodal_features=n_nodal_features,
