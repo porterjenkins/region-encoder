@@ -1,22 +1,20 @@
 import os
 import sys
 from collections import OrderedDict
-import torch.nn.functional as F
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
 from model.utils import write_embeddings
 
+
 class ViewEncode(nn.Module):
     def forward(self, input):
-        return input.view(-1, 24 * 11 * 11)
-
-
-class ViewDecode(nn.Module):
-    def forward(self, input):
-        return input.view(-1, 24, 11, 11)
+        return input.view(-1, 24 * 48 * 48)
 
 
 class Tan(nn.Module):
@@ -25,7 +23,7 @@ class Tan(nn.Module):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, img_dims=(200,200), h_dim_size=32, cuda_override=False):
+    def __init__(self, img_dims=(200, 200), h_dim_size=32, cuda_override=False):
         super(AutoEncoder, self).__init__()
         self.cuda = torch.cuda.is_available() and not cuda_override
         print(f"Cuda Set to {self.cuda}")
@@ -40,45 +38,22 @@ class AutoEncoder(nn.Module):
             ('relu2', nn.ReLU()),
             ('pool2', nn.MaxPool2d(2, 2)),
             ('view', ViewEncode()),
-            ('l1', nn.Linear(24 * 11 * 11, 120)),
+            ('l1', nn.Linear(24 * 48 * 48, 120)),
             ('relu3', nn.ReLU()),
             ('l2', nn.Linear(120, 84)),
             ('relu4', nn.ReLU()),
             ('l3', nn.Linear(84, h_dim_size))]
         ))
 
-        # Decoder
-        self.decoder = nn.Sequential(
-            nn.Linear(h_dim_size, 84),
-            nn.ReLU(),
-            nn.Linear(84, 120),
-            nn.ReLU(),
-            nn.Linear(120, 24 * 11 * 11),
-            nn.ReLU(),
-            ViewDecode(),
-            nn.Conv2d(24, 6, 3),
-            nn.ReLU(),
-            nn.UpsamplingBilinear2d((14, 14)),
-            nn.Conv2d(6, 3, 3),
-            nn.ReLU(),
-            nn.UpsamplingBilinear2d(self.img_dims),
-            nn.Conv2d(3, 3, kernel_size=1),
-            Tan()
-        )
         if self.cuda:
             self.encoder = self.encoder.cuda()
-            self.decoder = self.decoder.cuda()
 
-    def forward(self, x, decode_only=False):
+    def forward(self, x, neighbor, distance):
 
-        if decode_only:
-            h = x
-            x = self.decoder(h)
-        else:
-            h = self.encoder(x)
-            x = self.decoder(h)
-
-        return x, h
+        h = self.encoder(x)
+        h_n = self.encoder(neighbor)
+        h_d = self.encoder(distance)
+        return h, h_n, h_d
 
     def get_optimizer(self, lr):
         optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
@@ -106,7 +81,18 @@ class AutoEncoder(nn.Module):
 
         return mse
 
-    def run_train_job(self, n_epoch, batch_size, img_tensor, lr=.1, noise=.25):
+    @staticmethod
+    def triplet_loss(patch, neighbor, distant, l=1, m=0.1):
+        l_n = torch.norm(patch - neighbor, dim=1)
+        l_d = torch.norm(patch - distant, dim=1)
+        l_nd = l_n - l_d
+        loss_ind = F.relu(l_nd + m)
+        penalty = (torch.norm(patch, dim=1) + torch.norm(neighbor, dim=1) + torch.norm(distant, dim=1))
+        loss_ind_penalty = loss_ind + l * penalty
+        loss = torch.mean(loss_ind_penalty)
+        return loss
+
+    def run_train_job(self, n_epoch, img_tensor, lr=.1, batch_size=25):
         if self.cuda:
             img_tensor = img_tensor.cuda()
         optimizer = self.get_optimizer(lr)
@@ -119,21 +105,24 @@ class AutoEncoder(nn.Module):
 
         for epoch in range(n_epoch):  # loop over the dataset multiple times
             permute_idx = np.random.permutation(np.arange(n_samples))
-            for step in range(int(n_samples / batch_size)):
-                # zero the parameter gradients
-                optimizer.zero_grad()
+            running_loss = 0
+            n_steps = int(n_samples / batch_size)
+            for step in range(n_steps):
                 start_idx = step * batch_size
                 end_idx = start_idx + batch_size
                 batch_idx = permute_idx[start_idx:end_idx]
 
-                noisey_inputs = AutoEncoder.add_noise(img_tensor[batch_idx, :, :, :], noise_factor=noise, cuda=self.cuda)
+                # patch, neighbor, distant
+                triplets = region_grid.create_triplets(batch_idx, img_tensor)
 
                 # forward
-                reconstruction, h_batch = self.forward(x=noisey_inputs)
-                loss = AutoEncoder.loss_mse(img_tensor[batch_idx, :, :, :], reconstruction)
+                h_batch, neighbor, distance = self.forward(x=triplets[0], neighbor=triplets[1], distance=triplets[2])
+
+                loss = self.triplet_loss(h_batch, neighbor, distance)
+                running_loss += loss.item()
 
                 # Update matrix of learned representations
-                hidden_state[batch_idx, :] = h_batch
+                hidden_state[batch_idx, :] = h_batch[0]
 
                 # backward
                 # zero the parameter gradients
@@ -141,8 +130,8 @@ class AutoEncoder(nn.Module):
                 loss.backward()
                 optimizer.step()
 
-
-                print("Epoch: {}, step: {}, Train Loss {:.4f}".format(epoch, step, loss.item()))
+            epoch_loss = running_loss / n_steps
+            print("Epoch: {}, Train Loss {:.4f}".format(epoch, epoch_loss))
         print('Finished Training')
 
         return hidden_state
@@ -150,47 +139,30 @@ class AutoEncoder(nn.Module):
 
 if __name__ == "__main__":
 
-    import matplotlib.pyplot as plt
     import numpy as np
     from grid.create_grid import RegionGrid
-
-
-    # functions to show an image
-
-    def imshow(img, save=False, fname=None):
-        img = img / 2 + 0.5  # unnormalize
-        npimg = img.detach().numpy()
-        plt.imshow(np.transpose(npimg, (1, 2, 0)))
-        if save:
-            plt.savefig("tmp/" + fname)
-        else:
-            plt.show()
 
     if len(sys.argv) > 1:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
-        batch_size = int(sys.argv[3])
     else:
         epochs = 25
-        learning_rate = .1
-        batch_size = 20
+        learning_rate = .05
 
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
     region_grid.img_tens_get_size()
 
-
     img_tensor = torch.Tensor(region_grid.img_tensor)
     h_dim_size = int(c['hidden_dim_size'])
 
-    auto_encoder = AutoEncoder(img_dims=(50, 50), h_dim_size=h_dim_size)
-    embedding = auto_encoder.run_train_job(n_epoch=epochs, batch_size=batch_size, img_tensor=img_tensor,
-                                           lr=learning_rate)
+    auto_encoder = AutoEncoder(img_dims=(200, 200), h_dim_size=h_dim_size)
+    embedding = auto_encoder.run_train_job(n_epoch=epochs, img_tensor=img_tensor, lr=learning_rate)
 
     if torch.cuda.is_available():
         embedding = embedding.data.cpu().numpy()
     else:
         embedding = embedding.data.numpy()
 
-    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_tile_embedding_file'])
+    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_embedding_file'])
