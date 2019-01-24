@@ -7,11 +7,7 @@ config.json
 # deepwalk library
 model/deepwalk-master
 
-# node2vec library
-model/node2vec
-
-chicago
-
+paper
 
 # PyTorch tutorials
 tutorials

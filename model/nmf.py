@@ -18,7 +18,7 @@ A = region_grid.adj_matrix
 W = region_grid.weighted_mtx
 h_dim_size = int(c['hidden_dim_size'])
 
-mf_model = NMF(n_components=h_dim_size, init='random', solver='cd', max_iter=500, l1_ratio=0)
+mf_model = NMF(n_components=h_dim_size, init='random', solver='cd', max_iter=500, l1_ratio=0.5)
 
 
 
