@@ -178,7 +178,6 @@ if __name__ == "__main__":
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
-    region_grid.img_tens_get_size()
 
 
     img_tensor = torch.Tensor(region_grid.img_tensor)
@@ -193,4 +192,4 @@ if __name__ == "__main__":
     else:
         embedding = embedding.data.numpy()
 
-    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_tile_embedding_file'])
+    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['autoencoder_embedding_file'])

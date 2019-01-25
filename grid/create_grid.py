@@ -716,6 +716,7 @@ if __name__ == '__main__':
     # I = region_grid.img_tensor
 
     print(W.shape)
+    print(W.sum())
     print(A.shape)
     print(D.shape)
     # print(I.shape)
