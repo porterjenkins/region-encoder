@@ -8,6 +8,10 @@ from grid.create_grid import RegionGrid
 from model.utils import load_embedding
 from sklearn.neighbors import NearestNeighbors
 from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+from matplotlib import cm
+import matplotlib.cm as cmx
+import matplotlib.colors as colors
 
 
 def get_knn(X, k):
@@ -71,8 +75,29 @@ def filter_dict(d, top_k):
     sorted_by_value = sorted(d.items(), key=lambda kv: kv[1], reverse=True)
     for item in sorted_by_value[:top_k]:
         d_new[item[0]] = item[1]
+        print(item[0], item[1])
 
     return d_new
+
+def plt_dict(d, c, fname):
+    if 'None' in d:
+        del d['None']
+
+    colors = []
+    for cat in d.keys():
+        if cat in c:
+            colors.append(c[cat])
+
+    plt.figure(figsize=(3,3))
+    plt.bar(range(len(d)), list(d.values()), align='center', color=colors)
+    plt.xticks(range(len(d)), list(d.keys()), rotation=10,fontsize=6)
+    plt.legend(loc='best')
+    plt.savefig(fname)
+    plt.clf()
+    plt.close()
+
+
+
 
 c = get_config()
 region_grid = RegionGrid(config=c)
@@ -93,6 +118,11 @@ points = [region_grid.matrix_idx_map[q] for q in query]
 
 
 for p in points:
+
+    COLORS = ['red', 'green', 'blue', 'orange', 'grey', 'xkcd:sky blue', 'xkcd:indigo', 'xkcd:forest green',
+              'xkcd:navy blue', 'xkcd:yellow', 'xkcd:burnt orange', 'xkcd:dark red', 'xkcd:mint green',
+              'xkcd:dark teal', 'xkcd:pink', 'xkcd:teal', 'xkcd:magenta', 'xkcd:rose', 'xkcd:slate', 'xkcd:scarlet']
+    c_map = {}
     result = {}
     #p_neighbors = get_neigbors_for_point(p, H_2d, k)
     p_neighbors = indices[p, :]
@@ -102,8 +132,14 @@ for p in points:
     print("------------------")
     r_i = region_grid.regions[r_i_coor]
     poi_dict = count_poi(r_i)
-    poi_filter = filter_dict(poi_dict, 5)
+    poi_filter = filter_dict(poi_dict, 6)
     result['target'] = poi_filter
+
+    for poi in poi_filter.keys():
+        if poi in c_map:
+            continue
+        else:
+            c_map[poi] = COLORS.pop(0)
 
 
     for i, neighbor in enumerate(p_neighbors):
@@ -115,12 +151,21 @@ for p in points:
         r_j = region_grid.regions[neighbor_coor]
         nbr_poi_dict = count_poi(r_j)
         key = "neighbor_{}".format(i+1)
-        r_j_poi_filter = filter_dict(nbr_poi_dict, 5)
+        r_j_poi_filter = filter_dict(nbr_poi_dict, 6)
         result[key] = r_j_poi_filter
+
+        for poi in r_j_poi_filter.keys():
+            if poi in c_map:
+                continue
+            else:
+                c_map[poi] = COLORS.pop(0)
+
+        plt_dict(r_j_poi_filter,c_map, fname="results/case-study/{}-poi-dist.pdf".format(neighbor_coor))
+    plt_dict(poi_filter, c_map, fname="results/case-study/{}-poi-dist.pdf".format(r_i_coor))
 
 
     import pandas as pd
     df = pd.DataFrame.from_dict(result, orient='index').fillna(0)
     df = df[sorted(df.columns)]
 
-    df.to_csv("results/{}-poi.csv".format(r_i_coor))
+    df.to_csv("results/case-study/{}-poi.csv".format(r_i_coor))

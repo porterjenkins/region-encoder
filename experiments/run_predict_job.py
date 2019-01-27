@@ -53,7 +53,7 @@ if task == 'house_price':
     autoencoder_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
     joint_ae_dw = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'],
                                   c['autoencoder_embedding_file'])
-    tile2vec_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['tile2vec_file'])
+    #tile2vec_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['tile2vec_file'])
 
 elif task == 'traffic':
     input_data = region_grid.load_traffic_data(c['traffic_data_file'])
@@ -92,7 +92,7 @@ joint_mod.get_features(input_data)
 pca_mod.get_features(input_data)
 autoencoder_mod.get_features(input_data)
 joint_ae_dw.get_features(input_data)
-tile2vec_mod.get_features(input_data)
+#tile2vec_mod.get_features(input_data)
 
 k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=1990)
 
@@ -121,7 +121,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # Naive model w/ raw features
 
-    rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
+    """rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
     raw_features_err[fold_cntr, 0] = rmse
     raw_features_err[fold_cntr, 1] = mae
 
@@ -129,7 +129,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     rmse, mae = naive_raw_feature_img_mod.train_eval(train_idx, test_idx, estimator)
     raw_features_img_err[fold_cntr, 0] = rmse
-    raw_features_img_err[fold_cntr, 1] = mae
+    raw_features_img_err[fold_cntr, 1] = mae"""
 
     # DeepWalk Model
     rmse, mae = deepwalk_mod.train_eval(train_idx, test_idx, estimator)
@@ -169,9 +169,9 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     ae_dw_err[fold_cntr, 1] = mae
 
     # tile2vec model
-    rmse, mae = tile2vec_mod.train_eval(train_idx, test_idx, estimator)
-    tile2vec_err[fold_cntr, 0] = rmse
-    tile2vec_err[fold_cntr, 1] = mae
+    #rmse, mae = tile2vec_mod.train_eval(train_idx, test_idx, estimator)
+    #tile2vec_err[fold_cntr, 0] = rmse
+    #tile2vec_err[fold_cntr, 1] = mae
 
 
 

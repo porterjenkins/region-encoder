@@ -674,12 +674,16 @@ class Region:
         x_points = (self.points['nw'], self.points['sw'])
         y_points = (self.points['nw'], self.points['ne'])
 
-        x_dist = distance(x_points[0], x_points[1])
-        y_dist = distance(y_points[0], y_points[1])
+        x_dist = distance(x_points[0], x_points[1]).km
+        y_dist = distance(y_points[0], y_points[1]).km
 
         return x_dist, y_dist
 
     def compute_midpoint(self):
+        """
+        Compute the dimensions of a region in Kilometers
+        :return:
+        """
 
         try:
             x_points = [self.points['nw'][0], self.points['ne'][0]]
@@ -705,6 +709,8 @@ if __name__ == '__main__':
     c = get_config()
     region_grid = RegionGrid(config=c)
     tmp = region_grid.feature_matrix.sum(axis=1)
+    r = region_grid.regions['0,0']
+    print(r.compute_distances())
     # region_grid.load_img_data(std_img=True)
     region_grid.load_weighted_mtx()
     region_grid.load_housing_data(c['housing_data_file'])

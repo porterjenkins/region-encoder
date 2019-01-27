@@ -322,9 +322,9 @@ if __name__ == "__main__":
     h_dim_graph = 64
     h_dim_img = 32
     h_dim_size = int(c['hidden_dim_size'])
-    lambda_ae = .5
+    lambda_ae = 1.25
     lambda_edge = .1
-    lambda_g = .1
+    lambda_g = .5
     context_gcn = 4
     neg_samples_gcn = 10
     epochs = 50
