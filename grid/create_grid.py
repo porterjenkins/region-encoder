@@ -395,7 +395,7 @@ class RegionGrid:
 
         return "{},{}".format(x_idx, y_idx)
 
-    def create_flow_matrix(self, fname, n_rows=None, region_name='chicago'):
+    def create_flow_matrix(self, fname, n_rows=None, region_name='chicago', sample=False, p=.05):
         """
         Generated a weighted matrix (dims: n_regions x n_regions) from taxi flow data
          (https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew)
@@ -423,11 +423,18 @@ class RegionGrid:
         else:
             raise NotImplementedError("Taxi trajectory parsing only implemented for 'chicago' and 'nyc'")
 
+
+        if sample:
+            sample_fname = "{}-{}".format(fname.split(".csv")[0], 'sampled.csv')
+            if os.path.exists(sample_fname):
+                os.remove(sample_fname)
+
+
         sample_cnt = 0
         row_cntr = 0
         with open(fname, 'r') as f:
             for row in f:
-                data = row.split(",")
+                data = row.strip().split(",")
 
                 if row_cntr == 0:
                     headers = data
@@ -455,6 +462,18 @@ class RegionGrid:
                             if sample_cnt % 100 == 0:
                                 print("{}, {} --> {}".format(sample_cnt, trip_pickup, trip_drop),
                                       end="\r")
+
+                            if sample:
+                                alpha = numpy.random.uniform(0, 1)
+                                if alpha < p:
+                                    with open(sample_fname, 'a') as f:
+                                        pickup_region = '"%s"' % pickup_region
+                                        drop_region = '"%s"' % drop_region
+                                        data += [pickup_region, drop_region]
+                                        for item in data:
+                                            f.write("%s," % item)
+                                        f.write("\n")
+
 
                             if n_rows is not None:
                                 if sample_cnt >= n_rows:
@@ -752,7 +771,7 @@ if __name__ == '__main__':
     x = r.get_poi_poi_dist(region_grid.categories)
     print(x)
     # region_grid.load_img_data(std_img=True)
-    """region_grid.load_weighted_mtx()
+    region_grid.load_weighted_mtx()
     region_grid.load_housing_data(c['housing_data_file'])
 
     A = region_grid.adj_matrix
@@ -769,5 +788,5 @@ if __name__ == '__main__':
     y_house = region_grid.get_target_var("house_price")
     print(y_house)
 
-    # print(I)"""
+    # print(I)
 
