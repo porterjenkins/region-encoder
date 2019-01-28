@@ -11,7 +11,7 @@ import numpy as np
 if len(sys.argv) > 1:
     N_RUNS = int(sys.argv[1])
 else:
-    N_RUNS = 10
+    N_RUNS = 15
 
 
 c = get_config()
@@ -79,12 +79,9 @@ for i in range(N_RUNS):
     write_embeddings(arr=embedding, n_nodes=n_nodes, fname=fname)
     mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=False)
 
-
-
-with open(OUT_DIR + "params.txt", 'w') as f:
-
-    for code, param in params.items():
-        f.write("{}: ".format(code))
+    with open(OUT_DIR + "params-{}.txt".format(i), 'w') as f:
+        param = params[i]
+        f.write("{}: ".format(i))
         for p in param:
             f.write("{:.4f}, ".format(p))
 
