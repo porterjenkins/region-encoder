@@ -105,6 +105,13 @@ class RegionGrid:
         logging.warning("No Region Found")
         return None
 
+    def get_reverse_categories(self):
+        d = {}
+        for k, v in self.categories.items():
+            d[v] = k
+        return d
+
+
     @staticmethod
     def update_arr_two_dim_sampled(arr, regions, grid_partition_map):
         """
@@ -697,6 +704,37 @@ class Region:
 
         return mid
 
+    def get_poi_poi_dist(self, cat_idx_map):
+        """
+        Get the POI-to-POI category istance matrix (network).
+            each element, ij, denotes the average distance in meters from POI category i to j
+        :param cat_idx_map: (dict) mapping from POI categories to matrix indices
+        :return: poi_poi_dist (np.array)
+        """
+        n_cat = len(cat_idx_map)
+
+        category_sum_mtx = numpy.zeros((n_cat, n_cat))
+        category_cnt_mtx = numpy.zeros((n_cat, n_cat))
+
+        for i, poi_i in enumerate(self.poi):
+            for j, poi_j in enumerate(self.poi):
+                point_i = (poi_i.location.lat, poi_i.location.lon)
+                point_j = (poi_j.location.lat, poi_j.location.lon)
+
+                idx_i = cat_idx_map[poi_i.cat]
+                idx_j = cat_idx_map[poi_j.cat]
+                d = distance(point_i, point_j).meters
+
+                category_sum_mtx[idx_i, idx_j] += d
+                category_cnt_mtx[idx_i, idx_j] += 1
+
+        poi_poi_dist = category_sum_mtx / category_cnt_mtx
+
+        return numpy.nan_to_num(poi_poi_dist, 0)
+
+    def get_poi_poi_mobility(self):
+        pass
+
 
 def get_images_for_grid(region_grid, clear_dir=False, compress=True):
     from image.image_retrieval import get_images_for_all_no_marker, compress_images
@@ -709,10 +747,12 @@ if __name__ == '__main__':
     c = get_config()
     region_grid = RegionGrid(config=c)
     tmp = region_grid.feature_matrix.sum(axis=1)
-    r = region_grid.regions['0,0']
+    r = region_grid.regions['1,5']
     print(r.compute_distances())
+    x = r.get_poi_poi_dist(region_grid.categories)
+    print(x)
     # region_grid.load_img_data(std_img=True)
-    region_grid.load_weighted_mtx()
+    """region_grid.load_weighted_mtx()
     region_grid.load_housing_data(c['housing_data_file'])
 
     A = region_grid.adj_matrix
@@ -729,5 +769,5 @@ if __name__ == '__main__':
     y_house = region_grid.get_target_var("house_price")
     print(y_house)
 
-    # print(I)
+    # print(I)"""
 
