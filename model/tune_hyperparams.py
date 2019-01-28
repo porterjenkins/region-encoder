@@ -29,7 +29,7 @@ h_dim_img = 32
 h_dim_size = int(c['hidden_dim_size'])
 context_gcn = 4
 neg_samples_gcn = 10
-epochs = 20
+epochs = 12
 learning_rate = .1
 img_dims = (50, 50)
 
@@ -42,6 +42,9 @@ for i in range(N_RUNS):
     lambda_edge = np.exp(np.random.uniform(-6, .5))
     lambda_g = np.exp(np.random.uniform(-6, .5))
     lambda_weight_decay = np.random.uniform(0, 1e-3)
+
+    print("Tuning Iteration: {} - {:.4f}, {:.4f}, {:.4f}, {:.4f}".format(i, lambda_ae, lambda_edge, lambda_g,
+                                                                         lambda_weight_decay))
 
     params[i].append(lambda_ae)
     params[i].append(lambda_edge)
