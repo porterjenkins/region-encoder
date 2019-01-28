@@ -29,7 +29,7 @@ h_dim_img = 32
 h_dim_size = int(c['hidden_dim_size'])
 context_gcn = 4
 neg_samples_gcn = 10
-epochs = 3
+epochs = 12
 learning_rate = .1
 img_dims = (50, 50)
 
