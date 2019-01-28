@@ -77,7 +77,6 @@ for i in range(N_RUNS):
 
     fname = "{}embedding-iter-{}.txt".format(OUT_DIR, i)
     write_embeddings(arr=embedding, n_nodes=n_nodes, fname=fname)
-    mod.plt_learning_curve("plots/region-learning-curve.pdf", plt_all=False, log_scale=False)
 
     with open(OUT_DIR + "params-{}.txt".format(i), 'w') as f:
         param = params[i]
