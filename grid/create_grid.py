@@ -151,8 +151,9 @@ class RegionGrid:
 
     def get_taxi_trips(self, fname):
         df = pandas.read_csv(fname)
-
+        print("Mapping taxi trips to regions")
         for idx, row in df.iterrows():
+            print("--> progress: {:.4f}".format(idx / df.shape[0]), end='\r')
             if row['pickup_region'] == row['dropoff_region']:
                 trip = row[['pickup_latitude', 'pickup_longitude', 'dropoff_latitude', 'dropoff_longitude']].values
                 r_coor = row['pickup_region']
@@ -624,8 +625,6 @@ class RegionGrid:
 
 
 
-
-
 class Region:
 
     def __init__(self, name, index, points):
@@ -788,12 +787,8 @@ if __name__ == '__main__':
     c = get_config()
     region_grid = RegionGrid(config=c)
     tmp = region_grid.feature_matrix.sum(axis=1)
-    #r = region_grid.regions['1,5']
-    #print(r.compute_distances())
-    #x = r.get_poi_poi_dist(region_grid.categories)
-    #print(x)
-    f = c['raw_flow_file'].split(".csv")[0] + "-sampled.csv"
-    region_grid.get_taxi_trips(f)
+
+
 
     # region_grid.load_img_data(std_img=True)
     region_grid.load_weighted_mtx()
