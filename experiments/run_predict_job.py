@@ -121,7 +121,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # Naive model w/ raw features
 
-    """rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
+    rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
     raw_features_err[fold_cntr, 0] = rmse
     raw_features_err[fold_cntr, 1] = mae
 
@@ -139,7 +139,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     # Node2Vec Model
     rmse, mae = node2vec_mod.train_eval(train_idx, test_idx, estimator)
     node2vec_err[fold_cntr, 0] = rmse
-    node2vec_err[fold_cntr, 1] = mae"""
+    node2vec_err[fold_cntr, 1] = mae
 
     # Matrix Factorization Model
     rmse, mae = nmf_mod.train_eval(train_idx, test_idx, estimator)
@@ -148,7 +148,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
 
     # RegionEncoder model
-    """rmse, mae = re_mod.train_eval(train_idx, test_idx, estimator)
+    rmse, mae = re_mod.train_eval(train_idx, test_idx, estimator)
     embed_err[fold_cntr, 0] = rmse
     embed_err[fold_cntr, 1] = mae
 
@@ -166,7 +166,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     # AutoEncoder + DeepWalk
     rmse, mae = joint_ae_dw.train_eval(train_idx, test_idx, estimator)
     ae_dw_err[fold_cntr, 0] = rmse
-    ae_dw_err[fold_cntr, 1] = mae"""
+    ae_dw_err[fold_cntr, 1] = mae
 
     # tile2vec model
     #rmse, mae = tile2vec_mod.train_eval(train_idx, test_idx, estimator)
