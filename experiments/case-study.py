@@ -109,7 +109,23 @@ nbrs = NearestNeighbors(n_neighbors=k, algorithm='ball_tree').fit(H)
 distances, indices = nbrs.kneighbors(H)
 
 
-query = ['37,22','33,21','48,12','47,23']
+
+for id, r in region_grid.regions.items():
+    r_latent_nbrs = indices[r.index, 1:]
+
+    all_nbrs_disconnected = 0
+    for nbr in r_latent_nbrs:
+        nbr_coor = region_grid.idx_coor_map[nbr]
+        #print("r: {}, nbr: {}".format(id, nbr_coor))
+        #print("Is graph adjacent? {}".format(nbr_coor in r.adjacent))
+        all_nbrs_disconnected += nbr_coor in r.adjacent
+
+    if all_nbrs_disconnected == 0:
+        print("Region {} has no graph neighbors".format(id))
+
+
+
+query = ['37,22','33,21','48,12','47,23','15,1']
 
 points = [region_grid.matrix_idx_map[q] for q in query]
 
