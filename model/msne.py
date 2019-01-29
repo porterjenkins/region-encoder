@@ -27,7 +27,8 @@ class MSNE(nn.Module):
         self.W_decoder_1 = nn.Linear(hidden_dim, 256)
         self.W_decoder_2 = nn.Linear(256, network_size)
 
-
+        self.network_size = network_size
+        self.hidden_dim = hidden_dim
 
 
     def forward(self, X):
@@ -41,7 +42,7 @@ class MSNE(nn.Module):
         H = F.relu(self.W_decoder_1(Z))
         X_reconstruction = F.relu(self.W_decoder_2(H))
 
-        return X_reconstruction
+        return X_reconstruction, Z
 
 
     def get_optimizer(self, lr):
@@ -64,6 +65,8 @@ class MSNE(nn.Module):
         n_samples = X_poi_dist.shape[0]
         optimizer = self.get_optimizer(lr)
 
+        H_global = torch.zeros((n_samples, self.hidden_dim*2))
+
         print("Beginning Train Job for MSNE - epochs: {}, batch size: {}, lr: {}".format(n_epochs, batch_size, lr))
         for e in range(n_epochs):
             permute_idx = np.random.permutation(np.arange(n_samples))
@@ -75,16 +78,27 @@ class MSNE(nn.Module):
                 end_idx = start_idx + batch_size
                 batch_idx = permute_idx[start_idx:end_idx]
 
-                X_hat_dist = self.forward(X_poi_dist[batch_idx, :])
-                X_hat_mobility = self.forward(X_poi_mobility[batch_idx, :])
+                X_hat_dist, H_dist = self.forward(X_poi_dist[batch_idx, :])
+                X_hat_mobility, H_mobility = self.forward(X_poi_mobility[batch_idx, :])
 
                 loss = self.loss(X_poi_dist[batch_idx, :], X_hat_dist, X_poi_mobility[batch_idx, :], X_hat_mobility)
                 loss.backward()
 
                 running_loss += loss.item()
+                print("--> Step {} train loss: {:.4f}".format(step+1,loss.item()))
+
+                # store updated hidden state
+                H_global[batch_idx, :self.hidden_dim] = H_dist
+                H_global[batch_idx, (self.hidden_dim):self.hidden_dim*2] = H_mobility
+
 
             avg_loss = running_loss/int(n_samples / batch_size)
             print("Epoch: {} - Average Train loss: {:.4f}".format(e+1, avg_loss))
+
+
+
+        return H_global
+
 
 
 
@@ -182,9 +196,16 @@ if __name__ == "__main__":
 
 
     network_size = X_poi_dist.shape[1]
-    msne = MSNE(network_size, hidden_dim=int(c['hidden_dim_size']))
+    msne = MSNE(network_size, hidden_dim=int(int(c['hidden_dim_size'])/2))
 
     X_poi_dist = torch.Tensor(X_poi_dist)
     X_poi_mobility = torch.Tensor(X_poi_dist)
 
-    msne.run_train_job(X_poi_dist, X_poi_mobility, n_epochs=5, batch_size=50, lr=.05)
+    embedding = msne.run_train_job(X_poi_dist, X_poi_mobility, n_epochs=1, batch_size=50, lr=.05)
+
+    if torch.cuda.is_available():
+        embedding = embedding.data.cpu().numpy()
+    else:
+        embedding = embedding.data.numpy()
+
+    write_embeddings(arr=embedding, n_nodes=region_grid.n_regions, fname=c['msne_file'])
