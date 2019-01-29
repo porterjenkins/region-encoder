@@ -276,8 +276,8 @@ if __name__ == "__main__":
     X_poi_mobility = torch.Tensor(X_poi_dist)
 
     if int(sys.argv[1]) > 1:
-        n_epochs = sys.argv[1]
-        lr = sys.argv[2]
+        n_epochs = int(sys.argv[1])
+        lr = float(sys.argv[2])
     else:
         n_epochs = 10
         lr = .5
