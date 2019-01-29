@@ -222,13 +222,11 @@ def get_top_k(X, k):
 
 
 if __name__ == "__main__":
+
     c = get_config()
     region_grid = RegionGrid(config=c)
 
-    if int(sys.argv[1]) == 1:
-        GET_POI_FLAG = True
-    else:
-        GET_POI_FLAG = False
+    GET_POI_FLAG = False
 
     if GET_POI_FLAG:
 
@@ -271,14 +269,21 @@ if __name__ == "__main__":
 
 
 
-
     network_size = X_poi_dist.shape[1]
     msne = MSNE(network_size, hidden_dim=int(int(c['hidden_dim_size'])/2))
 
     X_poi_dist = torch.Tensor(X_poi_dist)
     X_poi_mobility = torch.Tensor(X_poi_dist)
 
-    embedding = msne.run_train_job(X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, k_dist, k_mobility, n_epochs=5, lr=.5)
+    if int(sys.argv[1]) > 1:
+        n_epochs = sys.argv[1]
+        lr = sys.argv[2]
+    else:
+        n_epochs = 10
+        lr = .5
+
+    embedding = msne.run_train_job(X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, k_dist, k_mobility,
+                                   n_epochs=n_epochs, lr=lr)
 
     if torch.cuda.is_available():
         embedding = embedding.data.cpu().numpy()
