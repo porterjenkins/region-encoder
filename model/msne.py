@@ -252,11 +252,11 @@ if __name__ == "__main__":
 
         with open(c['data_dir_main'] + "mnse_poi_dist_mtx.p", 'rb') as f:
             X_poi_dist = pickle.load(f)
-            X_poi_dist = X_poi_dist.todense()[:200]
+            X_poi_dist = X_poi_dist.todense()
 
         with open(c['data_dir_main'] + "mnse_poi_mobility_mtx.p", 'rb') as f:
             X_poi_mobility = pickle.load(f)
-            X_poi_mobility = X_poi_mobility.todense()[:200]
+            X_poi_mobility = X_poi_mobility.todense()
 
     #normalize data
     X_poi_dist = region_grid.normalize_mtx(X_poi_dist)
