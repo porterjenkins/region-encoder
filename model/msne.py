@@ -13,6 +13,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from sklearn.neighbors import NearestNeighbors
+
+
 
 class MSNEAutoEncoder(nn.Module):
     def __init__(self, network_size, hidden_dim):
@@ -26,20 +29,19 @@ class MSNEAutoEncoder(nn.Module):
         self.W_decoder_1 = nn.Linear(hidden_dim, 256)
         self.W_decoder_2 = nn.Linear(256, network_size)
 
-    def get_q_star(self,Q, H):
+    def get_q_star(self,Q, H, top_k):
         #q_0 = Q[0, :]
 
         #q = torch.einsum('ij, k-> ijk', Q, H)
         ##q = torch.mul(q_0, H)
+
         Q_star = torch.zeros_like(H)
         for i in range(Q.shape[0]):
             q = 0
-            for j in range(H.shape[0]):
+            nbr_idx = top_k[i]
+            for j in nbr_idx:
 
-                if i == j:
-                    continue
-                else:
-                    q += Q[i,j]*H[j, :]
+                q += Q[i,j]*H[j, :]
 
             Q_star[i, :] = q
 
@@ -48,14 +50,14 @@ class MSNEAutoEncoder(nn.Module):
         return Q_star
 
 
-    def forward(self, X):
+    def forward(self, X, Q, top_k):
 
         # Encode
         H = F.relu(self.W_encoder_1(X))
         H = F.relu(self.W_encoder_2(H))
-        Z = F.relu(self.W_encoder_3(H))
-        #Q_star = self.get_q_star(Q, H)
-        #Z = H + Q_star
+        H = F.relu(self.W_encoder_3(H))
+        Q_star = self.get_q_star(Q, H, top_k)
+        Z = H + Q_star
 
         # Decode
         H = F.relu(self.W_decoder_1(Z))
@@ -75,9 +77,9 @@ class MSNE(nn.Module):
 
 
 
-    def forward(self, X_dist, X_mobility):
-        X_dist_hat, H_dist = self.dist_encoder.forward(X_dist)
-        X_mobility_hat, H_mobility = self.mobility_encoder.forward(X_mobility)
+    def forward(self, X_dist, X_mobility, Q_dist, Q_mobility, k_dist, k_mobility):
+        X_dist_hat, H_dist = self.dist_encoder.forward(X_dist, Q_dist, k_dist)
+        X_mobility_hat, H_mobility = self.mobility_encoder.forward(X_mobility, Q_mobility, k_mobility)
 
         return X_dist_hat, H_dist, X_mobility_hat, H_mobility
 
@@ -104,7 +106,7 @@ class MSNE(nn.Module):
         return mse_dist + mse_mobility
 
 
-    def run_train_job(self, X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, n_epochs, lr):
+    def run_train_job(self, X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, k_dist, k_mobility, n_epochs, lr):
 
         n_samples = X_poi_dist.shape[0]
         optimizer = self.get_optimizer(lr)
@@ -128,7 +130,7 @@ class MSNE(nn.Module):
             #Q_mobility_batch = Q_mobility[batch_idx, :]
             #Q_mobility_batch = Q_mobility_batch[:, batch_idx]
 
-            X_hat_dist, H_dist, X_hat_mobility, H_mobility = self.forward(X_poi_mobility, X_poi_dist)
+            X_hat_dist, H_dist, X_hat_mobility, H_mobility = self.forward(X_poi_mobility, X_poi_dist, Q_dist, Q_mobility, k_dist, k_mobility)
 
             loss = self.loss(X_poi_dist, X_hat_dist, X_poi_mobility, X_hat_mobility)
             loss.backward()
@@ -144,7 +146,7 @@ class MSNE(nn.Module):
 
             #avg_loss = running_loss/int(n_samples / batch_size)
             avg_loss = loss.item()
-            print("Epoch: {} - Average Train loss: {:.6f}".format(e+1, avg_loss))
+            print("Epoch: {} - Train loss: {:.6f}".format(e+1, avg_loss))
 
         return H_global
 
@@ -162,6 +164,8 @@ def get_poi_poi_dist_mtx(region_grid, n_region, n_cat):
         cntr += 1
 
     return sparse.csr_matrix(X)
+
+
 
 def get_poi_poi_mobility_mtx(region_grid):
     print("Getting Intra-region POI-POI mobility networks")
@@ -203,6 +207,17 @@ def get_poi_poi_mobility_mtx(region_grid):
 
     return sparse.csr_matrix(X)
 
+
+def get_top_k(X, k):
+
+    d = {}
+    for i in range(X.shape[0]):
+        r_i_corr = np.abs(X[i, :]).argsort()
+        top_k = r_i_corr[-(k+1):]
+
+        d[i] = top_k[top_k != i][:k]
+
+    return d
 
 
 
@@ -247,8 +262,14 @@ if __name__ == "__main__":
     X_poi_dist = region_grid.normalize_mtx(X_poi_dist)
     X_poi_mobility = region_grid.normalize_mtx(X_poi_mobility)
 
-    Q_dist = torch.Tensor(np.nan_to_num(np.corrcoef(X_poi_dist), 0))
-    Q_mobility = torch.Tensor(np.nan_to_num(np.corrcoef(X_poi_mobility), 0))
+    # Get Q - Autocorrelaton matrix
+    Q_dist = np.nan_to_num(np.corrcoef(X_poi_dist), 0)
+    Q_mobility = np.nan_to_num(np.corrcoef(X_poi_mobility), 0)
+
+    k_dist = get_top_k(Q_dist, k=5)
+    k_mobility = get_top_k(Q_mobility, k=5)
+
+
 
 
     network_size = X_poi_dist.shape[1]
@@ -257,7 +278,7 @@ if __name__ == "__main__":
     X_poi_dist = torch.Tensor(X_poi_dist)
     X_poi_mobility = torch.Tensor(X_poi_dist)
 
-    embedding = msne.run_train_job(X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, n_epochs=5, lr=.5)
+    embedding = msne.run_train_job(X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, k_dist, k_mobility, n_epochs=5, lr=.5)
 
     if torch.cuda.is_available():
         embedding = embedding.data.cpu().numpy()
