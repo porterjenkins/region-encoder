@@ -14,10 +14,9 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-
-class MSNE(nn.Module):
+class MSNEAutoEncoder(nn.Module):
     def __init__(self, network_size, hidden_dim):
-        super(MSNE, self).__init__()
+        super(MSNEAutoEncoder, self).__init__()
         ### Encoder
         self.W_encoder_1 = nn.Linear(network_size, 256)
         self.W_encoder_2 = nn.Linear(256, 84)
@@ -27,8 +26,26 @@ class MSNE(nn.Module):
         self.W_decoder_1 = nn.Linear(hidden_dim, 256)
         self.W_decoder_2 = nn.Linear(256, network_size)
 
-        self.network_size = network_size
-        self.hidden_dim = hidden_dim
+    def get_q_star(self,Q, H):
+        #q_0 = Q[0, :]
+
+        #q = torch.einsum('ij, k-> ijk', Q, H)
+        ##q = torch.mul(q_0, H)
+        Q_star = torch.zeros_like(H)
+        for i in range(Q.shape[0]):
+            q = 0
+            for j in range(H.shape[0]):
+
+                if i == j:
+                    continue
+                else:
+                    q += Q[i,j]*H[j, :]
+
+            Q_star[i, :] = q
+
+
+
+        return Q_star
 
 
     def forward(self, X):
@@ -37,12 +54,33 @@ class MSNE(nn.Module):
         H = F.relu(self.W_encoder_1(X))
         H = F.relu(self.W_encoder_2(H))
         Z = F.relu(self.W_encoder_3(H))
+        #Q_star = self.get_q_star(Q, H)
+        #Z = H + Q_star
 
         # Decode
         H = F.relu(self.W_decoder_1(Z))
         X_reconstruction = F.relu(self.W_decoder_2(H))
 
         return X_reconstruction, Z
+
+
+class MSNE(nn.Module):
+    def __init__(self, network_size, hidden_dim):
+        super(MSNE, self).__init__()
+        self.dist_encoder = MSNEAutoEncoder(network_size, hidden_dim)
+        self.mobility_encoder = MSNEAutoEncoder(network_size, hidden_dim)
+
+        self.hidden_dim = hidden_dim
+        self.network_size = network_size
+
+
+
+    def forward(self, X_dist, X_mobility):
+        X_dist_hat, H_dist = self.dist_encoder.forward(X_dist)
+        X_mobility_hat, H_mobility = self.mobility_encoder.forward(X_mobility)
+
+        return X_dist_hat, H_dist, X_mobility_hat, H_mobility
+
 
 
     def get_optimizer(self, lr):
@@ -54,48 +92,59 @@ class MSNE(nn.Module):
 
     def loss(self, X_dist_true, X_dist_hat, X_mobility_true, X_mobility_hat):
 
-        mse_dist = self.mse_loss(X_dist_hat, X_dist_true)
-        mse_mobility = self.mse_loss(X_mobility_hat, X_mobility_true)
+        #mse_dist = self.mse_loss(X_dist_hat, X_dist_true)
+        #mse_mobility = self.mse_loss(X_mobility_hat, X_mobility_true)
+
+        err_dist = X_dist_true - X_dist_hat
+        mse_dist = torch.mean(torch.pow(err_dist, 2))
+
+        err_mobility = X_mobility_true - X_mobility_hat
+        mse_mobility = torch.mean(torch.pow(err_mobility, 2))
 
         return mse_dist + mse_mobility
 
 
-    def run_train_job(self, X_poi_dist, X_poi_mobility, n_epochs, batch_size, lr):
+    def run_train_job(self, X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, n_epochs, lr):
 
         n_samples = X_poi_dist.shape[0]
         optimizer = self.get_optimizer(lr)
 
         H_global = torch.zeros((n_samples, self.hidden_dim*2))
 
-        print("Beginning Train Job for MSNE - epochs: {}, batch size: {}, lr: {}".format(n_epochs, batch_size, lr))
+        print("Beginning Train Job for MSNE - epochs: {}, lr: {}".format(n_epochs, lr))
         for e in range(n_epochs):
             permute_idx = np.random.permutation(np.arange(n_samples))
-            running_loss = 0
-            for step in range(int(n_samples / batch_size)):
-                # zero the parameter gradients
-                optimizer.zero_grad()
-                start_idx = step * batch_size
-                end_idx = start_idx + batch_size
-                batch_idx = permute_idx[start_idx:end_idx]
+            #running_loss = 0
+            #for step in range(int(n_samples / batch_size)):
+            # zero the parameter gradients
+            optimizer.zero_grad()
+            #start_idx = step * batch_size
+            #end_idx = start_idx + batch_size
+            #batch_idx = permute_idx[start_idx:end_idx]
 
-                X_hat_dist, H_dist = self.forward(X_poi_dist[batch_idx, :])
-                X_hat_mobility, H_mobility = self.forward(X_poi_mobility[batch_idx, :])
+            #Q_dist_batch = Q_dist[batch_idx, :]
+            #Q_dist_batch = Q_dist_batch[:, batch_idx]
 
-                loss = self.loss(X_poi_dist[batch_idx, :], X_hat_dist, X_poi_mobility[batch_idx, :], X_hat_mobility)
-                loss.backward()
+            #Q_mobility_batch = Q_mobility[batch_idx, :]
+            #Q_mobility_batch = Q_mobility_batch[:, batch_idx]
 
-                running_loss += loss.item()
-                print("--> Step {} train loss: {:.4f}".format(step+1,loss.item()))
+            X_hat_dist, H_dist, X_hat_mobility, H_mobility = self.forward(X_poi_mobility, X_poi_dist)
 
-                # store updated hidden state
-                H_global[batch_idx, :self.hidden_dim] = H_dist
-                H_global[batch_idx, (self.hidden_dim):self.hidden_dim*2] = H_mobility
+            loss = self.loss(X_poi_dist, X_hat_dist, X_poi_mobility, X_hat_mobility)
+            loss.backward()
+            optimizer.step()
+
+            #running_loss += loss.item()
+            #print("--> Step {} train loss: {:.4f}".format(step+1,loss.item()))
+
+            # store updated hidden state
+            H_global[:, :self.hidden_dim] = H_dist
+            H_global[:, (self.hidden_dim):self.hidden_dim*2] = H_mobility
 
 
-            avg_loss = running_loss/int(n_samples / batch_size)
-            print("Epoch: {} - Average Train loss: {:.4f}".format(e+1, avg_loss))
-
-
+            #avg_loss = running_loss/int(n_samples / batch_size)
+            avg_loss = loss.item()
+            print("Epoch: {} - Average Train loss: {:.6f}".format(e+1, avg_loss))
 
         return H_global
 
@@ -188,11 +237,18 @@ if __name__ == "__main__":
 
         with open(c['data_dir_main'] + "mnse_poi_dist_mtx.p", 'rb') as f:
             X_poi_dist = pickle.load(f)
-            X_poi_dist = X_poi_dist.todense()
+            X_poi_dist = X_poi_dist.todense()[:200]
 
         with open(c['data_dir_main'] + "mnse_poi_mobility_mtx.p", 'rb') as f:
             X_poi_mobility = pickle.load(f)
-            X_poi_mobility = X_poi_mobility.todense()
+            X_poi_mobility = X_poi_mobility.todense()[:200]
+
+    #normalize data
+    X_poi_dist = region_grid.normalize_mtx(X_poi_dist)
+    X_poi_mobility = region_grid.normalize_mtx(X_poi_mobility)
+
+    Q_dist = torch.Tensor(np.nan_to_num(np.corrcoef(X_poi_dist), 0))
+    Q_mobility = torch.Tensor(np.nan_to_num(np.corrcoef(X_poi_mobility), 0))
 
 
     network_size = X_poi_dist.shape[1]
@@ -201,7 +257,7 @@ if __name__ == "__main__":
     X_poi_dist = torch.Tensor(X_poi_dist)
     X_poi_mobility = torch.Tensor(X_poi_dist)
 
-    embedding = msne.run_train_job(X_poi_dist, X_poi_mobility, n_epochs=1, batch_size=50, lr=.05)
+    embedding = msne.run_train_job(X_poi_dist, X_poi_mobility, Q_dist, Q_mobility, n_epochs=5, lr=.5)
 
     if torch.cuda.is_available():
         embedding = embedding.data.cpu().numpy()
