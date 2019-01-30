@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
         # get intra-region poi-poi mobility
         f = c['raw_flow_file'].split(".csv")[0] + "-sampled.csv"
-        region_grid.get_taxi_trips(f)
+        region_grid.get_taxi_trips(f, city=c['city_name'])
         X_poi_mobility = get_poi_poi_mobility_mtx(region_grid)
 
         with open(c['data_dir_main'] + "mnse_poi_mobility_mtx.p", 'wb') as f:
@@ -250,11 +250,14 @@ if __name__ == "__main__":
 
         with open(c['data_dir_main'] + "mnse_poi_dist_mtx.p", 'rb') as f:
             X_poi_dist = pickle.load(f)
-            X_poi_dist = X_poi_dist.todense()
+            X_poi_dist = X_poi_dist
 
         with open(c['data_dir_main'] + "mnse_poi_mobility_mtx.p", 'rb') as f:
             X_poi_mobility = pickle.load(f)
-            X_poi_mobility = X_poi_mobility.todense()
+            X_poi_mobility = X_poi_mobility
+
+    X_poi_dist = X_poi_dist.todense()
+    X_poi_mobility = X_poi_mobility.todense()
 
     #normalize data
     X_poi_dist = region_grid.normalize_mtx(X_poi_dist)

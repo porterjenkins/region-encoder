@@ -149,13 +149,22 @@ class RegionGrid:
             return float(price[:price.index("m")]) * 1000000
         return float(price)
 
-    def get_taxi_trips(self, fname):
+    def get_taxi_trips(self, fname, city):
         df = pandas.read_csv(fname)
+
+        if city == 'nyc':
+            loc_cols = ['pickup_latitude', 'pickup_longitude', 'dropoff_latitude', 'dropoff_longitude']
+        elif city == 'chicago':
+            loc_cols = ['Pickup Centroid Latitude', 'Pickup Centroid Longitude', 'Dropoff Centroid Latitude', 'Dropoff Centroid Longitude',]
+        else:
+            raise NotImplementedError("city must be 'chicago' or 'nyc' ")
+
+
         print("Mapping taxi trips to regions")
         for idx, row in df.iterrows():
             print("--> progress: {:.4f}".format(idx / df.shape[0]), end='\r')
             if row['pickup_region'] == row['dropoff_region']:
-                trip = row[['pickup_latitude', 'pickup_longitude', 'dropoff_latitude', 'dropoff_longitude']].values
+                trip = row[loc_cols].values
                 r_coor = row['pickup_region']
                 r = self.regions[r_coor]
                 r.add_trip(trip)
