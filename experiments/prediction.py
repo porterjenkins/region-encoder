@@ -140,8 +140,10 @@ class TrafficVolumeModel(PredictionModel):
 
     def get_features(self, input_data):
         input_data = input_data[~np.isnan(input_data.traffic)]
-        features = input_data[['region_coor', 'hour', 'Direction', 'SHAPE_Leng','traffic']]
-        features = pd.get_dummies(features, columns=['hour', 'Direction'])
+        #features = input_data[['region_coor', 'hour', 'Direction', 'SHAPE_Leng','traffic']]
+        features = input_data[['region_coor', 'Direction', 'SHAPE_Leng', 'traffic']]
+        #features = pd.get_dummies(features, columns=['hour', 'Direction'])
+        features = pd.get_dummies(features, columns=['Direction'])
 
         embed = self.get_embedding()
         if embed is not None:

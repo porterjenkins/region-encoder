@@ -214,6 +214,12 @@ class RegionGrid:
         elif city == 'nyc':
             df = pandas.read_csv(fname, index_col=0)
             df = df[~pandas.isnull(df.the_geom)].reset_index()
+            traffic_cols = [x for x in df.columns if 'traffic_' in x]
+            mean_traffic = df[traffic_cols].mean(axis=1)
+            df['traffic'] = mean_traffic
+            df.drop(traffic_cols, axis=1, inplace=True)
+
+
             roads = numpy.zeros(df.shape[0], dtype=object)
             reg_coor = numpy.zeros(df.shape[0], dtype=object)
             missed = 0
@@ -238,7 +244,8 @@ class RegionGrid:
                     missed += 1
             df['region_coor'] = reg_coor
             df = df[~pandas.isnull(df.region_coor)]
-            df = pandas.wide_to_long(df, stubnames='traffic', i = ['From', 'To'], j='hour', sep='_').reset_index()
+
+            #df = pandas.wide_to_long(df, stubnames='traffic', i = ['From', 'To'], j='hour', sep='_').reset_index()
             #df = gp.GeoDataFrame(df)
             #df['the_geom'] = gp.GeoSeries(roads)
 
