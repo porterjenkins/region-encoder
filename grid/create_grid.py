@@ -11,7 +11,9 @@ import pandas
 from geopy.distance import distance
 from scipy import ndimage
 from scipy.spatial.distance import euclidean
-
+import geopandas as gp
+from shapely import geometry
+import re
 
 logging.basicConfig(filename='region.log', filemode='w', level=logging.INFO,
                     format='%(asctime)s %(message)s')
@@ -189,24 +191,68 @@ class RegionGrid:
         df['region_coor'] = reg_coor
         return df
 
-    def load_traffic_data(self, fname):
-        df = pandas.read_csv(fname)
-        reg_coor = numpy.zeros(df.shape[0], dtype=object)
-        missed = 0
-        for road_id, row in df.iterrows():
-            lat, lon, volume, date = float(row.Latitude), float(row.Longitude), row['Total Passing Vehicle Volume'], \
-                                     row['Date of Count']
-            region = self.get_region_for_coor(lat, lon)
+    def load_traffic_data(self, fname, city):
+        if city == 'chicago':
 
-            if region is not None:
-                region.add_traffic_volume(volume)
-                reg_coor[road_id] = region.coordinate_name
-            else:
-                reg_coor[road_id] = numpy.nan
-                missed += 1
+            df = pandas.read_csv(fname)
+            reg_coor = numpy.zeros(df.shape[0], dtype=object)
+            missed = 0
+            for road_id, row in df.iterrows():
+                lat, lon, volume, date = float(row.Latitude), float(row.Longitude), row['Total Passing Vehicle Volume'], \
+                                         row['Date of Count']
+                region = self.get_region_for_coor(lat, lon)
+
+                if region is not None:
+                    region.add_traffic_volume(volume)
+                    reg_coor[road_id] = region.coordinate_name
+                else:
+                    reg_coor[road_id] = numpy.nan
+                    missed += 1
+
+            df['region_coor'] = reg_coor
+
+        elif city == 'nyc':
+            df = pandas.read_csv(fname, index_col=0, nrows=100)
+            df = df[~pandas.isnull(df.the_geom)].reset_index()
+            roads = numpy.zeros(df.shape[0], dtype=object)
+            reg_coor = numpy.zeros(df.shape[0], dtype=object)
+            missed = 0
+
+            for idx, row in df.iterrows():
+                multilinestring = row.the_geom
+                points = re.search('\(\((.*)\)\)', multilinestring).group(1).split(", ")
+                point_list = []
+                for p in points:
+                    lon, lat = p.split(' ')
+                    point_list.append((float(lat), float(lon)))
+                line = geometry.LineString(point_list)
+                roads[idx] = line
+                centroid = line.centroid.xy
+                region = self.get_region_for_coor(centroid[0][0], centroid[1][0])
+
+                if region is not None:
+                    #region.add_traffic_volume(volume)
+                    reg_coor[idx] = region.coordinate_name
+                else:
+                    reg_coor[idx] = numpy.nan
+                    missed += 1
+            df['region_coor'] = reg_coor
+            df = df[~pandas.isnull(df.region_coor)]
+            df = pandas.wide_to_long(df, stubnames='traffic', i = ['From', 'To'], j='hour', sep='_').reset_index()
+            #df = gp.GeoDataFrame(df)
+            #df['the_geom'] = gp.GeoSeries(roads)
+
+            #df = df.set_geometry('the_geom')
+            #print(df.head())
+            #print(df.geometry.name)
+            stop = 0
+        else:
+            raise NotImplementedError("city must be 'nyc' or 'chicago'")
+
         print(f"{missed} rows of traffic records not loaded")
-        df['region_coor'] = reg_coor
+
         return df
+
 
     def load_img_data(self, img_dims=(50,50), std_img=True):
 

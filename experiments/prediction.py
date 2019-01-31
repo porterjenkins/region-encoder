@@ -139,24 +139,28 @@ class TrafficVolumeModel(PredictionModel):
         super(TrafficVolumeModel, self).__init__(idx_coor_map, config, n_epochs, embedding_fname, second_embed_fname, third_embedding)
 
     def get_features(self, input_data):
-        features = input_data[['region_coor', 'Latitude', 'Longitude', 'Total Passing Vehicle Volume']]
+        features = input_data[['region_coor', 'hour', 'Direction', 'SHAPE_Leng','traffic']]
+        features = pd.get_dummies(features, columns=['hour', 'Direction'])
 
         embed = self.get_embedding()
         if embed is not None:
 
             embed_df = pd.DataFrame(embed, index=self.idx_coor_map.values())
             embed_features = pd.merge(features, embed_df, left_on='region_coor', right_index=True, how='inner')
-            embed_features.drop('region_coor', axis=1, inplace=True)
 
-            X = embed_features.drop(['Latitude', 'Longitude', 'Total Passing Vehicle Volume'], axis=1).values
-            y = embed_features['Total Passing Vehicle Volume'].values
+
+
 
         else:
             embed = load_embedding(self.config['embedding_file'])
             embed_df = pd.DataFrame(embed, index=self.idx_coor_map.values())
             embed_features = pd.merge(features, embed_df, left_on='region_coor', right_index=True, how='inner')
-            X = embed_features[['Latitude', 'Longitude', 'Total Passing Vehicle Volume']].values
-            y = embed_features['Total Passing Vehicle Volume'].values
+
+            #X = embed_features[['Latitude', 'Longitude', 'Total Passing Vehicle Volume']].values
+
+        embed_features.drop('region_coor', axis=1, inplace=True)
+        X = embed_features.drop(['traffic'], axis=1).values
+        y = embed_features['traffic'].values
 
         print(X.shape)
         self.X = X

@@ -53,11 +53,13 @@ if task == 'house_price':
     autoencoder_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
     joint_ae_dw = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'],
                                   c['autoencoder_embedding_file'])
-    #tile2vec_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['tile2vec_file'])
+    tile2vec_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['tile2vec_file'])
     msne_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['msne_file'])
+    msne_tile2_vec_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['msne_file'], c['tile2vec_file'])
+    hdge_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['hdge_file'])
 
 elif task == 'traffic':
-    input_data = region_grid.load_traffic_data(c['traffic_data_file'])
+    input_data = region_grid.load_traffic_data(c['traffic_data_file'], city=c['city_name'])
     # Initialize Models
     naive_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs)
     naive_raw_feature_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, region_grid.feature_matrix,
@@ -75,6 +77,8 @@ elif task == 'traffic':
     joint_ae_dw = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'],
                                   c['autoencoder_embedding_file'])
     msne_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['msne_file'])
+    msne_tile2_vec_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['msne_file'], c['tile2vec_file'])
+    hdge_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['hdge_file'])
 
 
 else:
@@ -84,18 +88,20 @@ else:
 
 # Get Features
 naive_mod.get_features(input_data)
-naive_raw_feature_mod.get_features(input_data)
-naive_raw_feature_img_mod.get_features(input_data)
-deepwalk_mod.get_features(input_data)
-node2vec_mod.get_features(input_data)
-nmf_mod.get_features(input_data)
+#naive_raw_feature_mod.get_features(input_data)
+#naive_raw_feature_img_mod.get_features(input_data)
+#deepwalk_mod.get_features(input_data)
+#node2vec_mod.get_features(input_data)
+#nmf_mod.get_features(input_data)
 re_mod.get_features(input_data)
-joint_mod.get_features(input_data)
-pca_mod.get_features(input_data)
-autoencoder_mod.get_features(input_data)
-joint_ae_dw.get_features(input_data)
+#joint_mod.get_features(input_data)
+#pca_mod.get_features(input_data)
+#autoencoder_mod.get_features(input_data)
+#joint_ae_dw.get_features(input_data)
 #tile2vec_mod.get_features(input_data)
-msne_mod.get_features(input_data)
+#msne_mod.get_features(input_data)
+#msne_tile2_vec_mod.get_features(input_data)
+#hdge_mod.get_features(input_data)
 
 k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=1990)
 
@@ -111,6 +117,9 @@ ae_err = np.zeros((n_folds, 2))
 ae_dw_err = np.zeros((n_folds, 2))
 tile2vec_err = np.zeros((n_folds, 2))
 msne_err = np.zeros((n_folds, 2))
+msne_tile2_err = np.zeros((n_folds, 2))
+hdge_err = np.zeros((n_folds, 2))
+
 
 
 train_ind_arr = np.arange(deepwalk_mod.X.shape[0])
@@ -125,7 +134,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # Naive model w/ raw features
 
-    rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
+    """rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
     raw_features_err[fold_cntr, 0] = rmse
     raw_features_err[fold_cntr, 1] = mae
 
@@ -148,7 +157,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     # Matrix Factorization Model
     rmse, mae = nmf_mod.train_eval(train_idx, test_idx, estimator)
     nmf_err[fold_cntr, 0] = rmse
-    nmf_err[fold_cntr, 1] = mae
+    nmf_err[fold_cntr, 1] = mae"""
 
 
     # RegionEncoder model
@@ -157,7 +166,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     embed_err[fold_cntr, 1] = mae
 
     #PCA model
-    rmse, mae = pca_mod.train_eval(train_idx, test_idx, estimator)
+    """rmse, mae = pca_mod.train_eval(train_idx, test_idx, estimator)
     pca_err[fold_cntr, 0] = rmse
     pca_err[fold_cntr, 1] = mae
 
@@ -173,17 +182,27 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     ae_dw_err[fold_cntr, 1] = mae
 
     # tile2vec model
-    #rmse, mae = tile2vec_mod.train_eval(train_idx, test_idx, estimator)
-    #tile2vec_err[fold_cntr, 0] = rmse
-    #tile2vec_err[fold_cntr, 1] = mae
+    rmse, mae = tile2vec_mod.train_eval(train_idx, test_idx, estimator)
+    tile2vec_err[fold_cntr, 0] = rmse
+    tile2vec_err[fold_cntr, 1] = mae
 
     # msne model
     rmse, mae = msne_mod.train_eval(train_idx, test_idx, estimator)
     msne_err[fold_cntr, 0] = rmse
     msne_err[fold_cntr, 1] = mae
 
+    #msne + tile2vec
+    rmse, mae = msne_tile2_vec_mod.train_eval(train_idx, test_idx, estimator)
+    msne_tile2_err[fold_cntr, 0] = rmse
+    msne_tile2_err[fold_cntr, 1] = mae
+
+    # hdge model
+    #rmse, mae = hdge_mod.train_eval(train_idx, test_idx, estimator)
+    #hdge_err[fold_cntr, 0] = rmse
+    #hdge_err[fold_cntr, 1] = mae"""
 
     fold_cntr += 1
+
 
 results = []
 
@@ -227,14 +246,22 @@ tile2vec_err_mean = np.mean(tile2vec_err, axis=0)
 tile2vec_err_std = np.std(tile2vec_err, axis=0)
 results.append(['Tile2Vec', tile2vec_err_mean[0], tile2vec_err_std[0], tile2vec_err_mean[1], tile2vec_err_std[1]])
 
+hdge_err_mean = np.mean(hdge_err, axis=0)
+hdge_err_sd = np.std(hdge_err, axis=0)
+results.append(['HDGE', hdge_err_mean[0], hdge_err_sd[0], hdge_err_mean[1], hdge_err_sd[1]])
+
 msne_err_mean = np.mean(msne_err, axis=0)
 msne_err_std = np.std(msne_err, axis=0)
 results.append(['MSNE', msne_err_mean[0], msne_err_std[0], msne_err_mean[1], msne_err_std[1]])
 
+msne_tile2vec_err_mean = np.mean(msne_tile2_err, axis=0)
+msne_tile2vec_err_std = np.std(msne_tile2_err, axis=0)
+results.append(['MSNE + Tile2Vec', msne_tile2vec_err_mean[0], msne_tile2vec_err_std[0], msne_tile2vec_err_mean[1], msne_tile2vec_err_std[1]])
+
+
 embed_err_mean = np.mean(embed_err, axis=0)
 embed_err_std = np.std(embed_err, axis=0)
 results.append(['RegionEncoder', embed_err_mean[0], embed_err_std[0], embed_err_mean[1], embed_err_std[1]])
-
 
 
 

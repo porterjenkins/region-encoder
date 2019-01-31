@@ -44,6 +44,9 @@ def load_embedding(fname):
         for line in f:
             if cntr > 0:
                 row = line.decode('utf-8').split(" ")
+                # skip row if no id
+                if row[0] == '':
+                    continue
                 row_float = []
                 for i, element in enumerate(row):
                     # skip 0th element - tract id
