@@ -212,7 +212,7 @@ class RegionGrid:
             df['region_coor'] = reg_coor
 
         elif city == 'nyc':
-            df = pandas.read_csv(fname, index_col=0, nrows=100)
+            df = pandas.read_csv(fname, index_col=0)
             df = df[~pandas.isnull(df.the_geom)].reset_index()
             roads = numpy.zeros(df.shape[0], dtype=object)
             reg_coor = numpy.zeros(df.shape[0], dtype=object)

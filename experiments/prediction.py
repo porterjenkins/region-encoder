@@ -102,7 +102,7 @@ class PredictionModel(object):
 
         rmse = np.sqrt(mean_squared_error(self.y[test_idx], pred))
         mae = mean_absolute_error(self.y[test_idx], pred)
-        mre = mean_relative_error(self.y[test_idx], pred)
+        #mre = mean_relative_error(self.y[test_idx], pred)
 
         return rmse, mae
 
@@ -139,6 +139,7 @@ class TrafficVolumeModel(PredictionModel):
         super(TrafficVolumeModel, self).__init__(idx_coor_map, config, n_epochs, embedding_fname, second_embed_fname, third_embedding)
 
     def get_features(self, input_data):
+        input_data = input_data[~np.isnan(input_data.traffic)]
         features = input_data[['region_coor', 'hour', 'Direction', 'SHAPE_Leng','traffic']]
         features = pd.get_dummies(features, columns=['hour', 'Direction'])
 
@@ -147,7 +148,7 @@ class TrafficVolumeModel(PredictionModel):
 
             embed_df = pd.DataFrame(embed, index=self.idx_coor_map.values())
             embed_features = pd.merge(features, embed_df, left_on='region_coor', right_index=True, how='inner')
-
+            embed_features.drop('region_coor', axis=1, inplace=True)
 
 
 
@@ -155,12 +156,13 @@ class TrafficVolumeModel(PredictionModel):
             embed = load_embedding(self.config['embedding_file'])
             embed_df = pd.DataFrame(embed, index=self.idx_coor_map.values())
             embed_features = pd.merge(features, embed_df, left_on='region_coor', right_index=True, how='inner')
+            h_dim = int(self.config['hidden_dim_size'])
+            drop_cols = list(range(h_dim)) + ['region_coor']
+            embed_features.drop(drop_cols, axis=1, inplace=True)
 
-            #X = embed_features[['Latitude', 'Longitude', 'Total Passing Vehicle Volume']].values
-
-        embed_features.drop('region_coor', axis=1, inplace=True)
         X = embed_features.drop(['traffic'], axis=1).values
         y = embed_features['traffic'].values
+
 
         print(X.shape)
         self.X = X
