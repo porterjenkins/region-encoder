@@ -262,7 +262,7 @@ class RegionGrid:
 
 
 
-    def get_checkin_counts(self):
+    def get_checkin_counts(self, average=False):
         """
         Compute total check-in county by region
         :return: (np.array) array of counts
@@ -271,7 +271,7 @@ class RegionGrid:
         checkins = numpy.zeros((self.n_regions, 3))
 
         for coor, r, in self.regions.items():
-            checkins[r.index, 0] = r.count_checkins()
+            checkins[r.index, 0] = r.count_checkins(average)
             checkins[r.index, 1] = r.mid_point[0]
             checkins[r.index, 2] = r.mid_point[1]
 
@@ -757,13 +757,23 @@ class Region:
             'nw': f"{x - 1},{y - 1}"
         }
 
-    def count_checkins(self):
+    def count_checkins(self, average=False):
 
         total_cnt = 0
+        poi_cnt = len(self.poi)
         for p in self.poi:
             total_cnt += p.checkin_count
 
-        return total_cnt
+        if average:
+            if poi_cnt == 0:
+                sum_stat = 0
+            else:
+                sum_stat = total_cnt / poi_cnt
+        else:
+            sum_stat = total_cnt
+
+
+        return sum_stat
 
     def create_adjacency(self, regions):
         self.adjacent = regions
