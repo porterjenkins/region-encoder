@@ -262,7 +262,7 @@ class RegionGrid:
 
 
 
-    def get_checkin_counts(self, average=False):
+    def get_checkin_counts(self, metric='sum'):
         """
         Compute total check-in county by region
         :return: (np.array) array of counts
@@ -271,7 +271,7 @@ class RegionGrid:
         checkins = numpy.zeros((self.n_regions, 3))
 
         for coor, r, in self.regions.items():
-            checkins[r.index, 0] = r.count_checkins(average)
+            checkins[r.index, 0] = r.count_checkins(metric)
             checkins[r.index, 1] = r.mid_point[0]
             checkins[r.index, 2] = r.mid_point[1]
 
@@ -757,23 +757,26 @@ class Region:
             'nw': f"{x - 1},{y - 1}"
         }
 
-    def count_checkins(self, average=False):
+    def count_checkins(self, metric=False):
 
-        total_cnt = 0
-        poi_cnt = len(self.poi)
-        for p in self.poi:
-            total_cnt += p.checkin_count
-
-        if average:
-            if poi_cnt == 0:
-                sum_stat = 0
-            else:
-                sum_stat = total_cnt / poi_cnt
+        #total_cnt = 0
+        #poi_cnt = len(self.poi)
+        poi_cnts = list()
+        if self.poi:
+            for p in self.poi:
+                #total_cnt += p.checkin_count
+                poi_cnts.append(p.checkin_count)
         else:
-            sum_stat = total_cnt
+            poi_cnts.append(0)
 
-
-        return sum_stat
+        if metric == 'sum':
+            return numpy.sum(poi_cnts)
+        elif metric == 'mean':
+            return numpy.mean(poi_cnts)
+        elif metric == 'median':
+            return numpy.median(poi_cnts)
+        else:
+            raise NotImplementedError("{} not implemented as poi checkin metric".format(metric))
 
     def create_adjacency(self, regions):
         self.adjacent = regions

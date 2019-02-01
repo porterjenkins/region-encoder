@@ -81,7 +81,7 @@ elif task == 'traffic':
     hdge_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['hdge_file'])
 
 elif task == 'check_in':
-    input_data = region_grid.get_checkin_counts(average=True)
+    input_data = region_grid.get_checkin_counts(metric="median")
     naive_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs)
     naive_raw_feature_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, embedding=region_grid.feature_matrix,
                                                second_embedding=region_grid.weighted_mtx)

@@ -76,7 +76,7 @@ class PredictionModel(object):
             pred = model.predict(tst)
         elif model == 'lasso':
 
-            model = Lasso(alpha=1.0, fit_intercept=True)
+            model = Lasso(alpha=.02, fit_intercept=True)
             model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
             pred = model.predict(X=self.X[test_idx])
 
