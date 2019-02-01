@@ -12,6 +12,7 @@ from experiments.mlp import MLP
 import torch
 from sklearn.neural_network import MLPRegressor
 from experiments.metrics import *
+from sklearn.preprocessing import normalize, scale
 
 class PredictionModel(object):
     def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None, third_embedding=None):
@@ -76,7 +77,7 @@ class PredictionModel(object):
             pred = model.predict(tst)
         elif model == 'lasso':
 
-            model = Lasso(alpha=.02, fit_intercept=True)
+            model = Lasso(alpha=.5, fit_intercept=True)
             model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
             pred = model.predict(X=self.X[test_idx])
 
@@ -110,16 +111,22 @@ class CheckinModel(PredictionModel):
     def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None, third_embedding=None):
         super(CheckinModel, self).__init__(idx_coor_map, config, n_epochs, embedding, second_embedding, third_embedding)
 
-    def get_features(self, input_data):
+    def get_features(self, input_data, norm_y=False):
 
         X = input_data[['lat', 'lon']]
         embed = self.get_embedding()
         if embed is not None:
-            self.X = np.concatenate((X.values, embed), axis=1)
+            #self.X = np.concatenate((X.values, embed), axis=1)
+            self.X = embed
+
         else:
             self.X = X.values
 
-        self.y = input_data['checkins'].values
+        if norm_y:
+            self.y = scale(input_data['checkins'].values.reshape(-1,1), with_std=True, with_mean=True)
+            #self.y = np.log(input_data['checkins'].values)
+        else:
+            self.y = input_data['checkins'].values
 
         print(self.X.shape)
 
@@ -138,14 +145,17 @@ class HousePriceModel(PredictionModel):
             embed_features = pd.merge(features, embed_df, left_on='region_coor', right_index=True, how='inner')
             embed_features.drop('region_coor', axis=1, inplace=True)
 
-            X = embed_features.drop(['priceSqft', 'lat', 'lon'], axis=1).values
+            X = embed_features.drop(['priceSqft','lat','lon'], axis=1).values
             y = embed_features['priceSqft'].values
 
         else:
             embed = load_embedding(self.config['embedding_file'])
             embed_df = pd.DataFrame(embed, index=self.idx_coor_map.values())
             embed_features = pd.merge(features, embed_df, left_on='region_coor', right_index=True, how='inner')
-            X = embed_features[['numBedrooms', 'numBathrooms', 'sqft']].values
+            embed_features = pd.get_dummies(embed_features, columns=['region_coor'])
+            keepcols = [str(c) for c in list(embed_features.columns) if 'region_coor' in str(c)] + ['numBedrooms', 'numBathrooms', 'sqft']
+
+            X = embed_features[keepcols].values
             y = embed_features['priceSqft'].values
 
         print(X.shape)

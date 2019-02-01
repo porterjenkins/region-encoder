@@ -889,6 +889,8 @@ if __name__ == '__main__':
     tmp = region_grid.feature_matrix.sum(axis=1)
 
     checkins = region_grid.get_checkin_counts()
+    for r in region_grid.regions.values():
+        print(r.compute_distances())
 
     # region_grid.load_img_data(std_img=True)
     region_grid.load_weighted_mtx()
