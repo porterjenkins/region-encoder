@@ -106,6 +106,24 @@ class PredictionModel(object):
 
         return rmse, mae
 
+class CheckinModel(PredictionModel):
+    def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None, third_embedding=None):
+        super(CheckinModel, self).__init__(idx_coor_map, config, n_epochs, embedding, second_embedding, third_embedding)
+
+    def get_features(self, input_data):
+
+        X = input_data[['lat', 'lon']]
+        embed = self.get_embedding()
+        if embed is not None:
+            self.X = np.concatenate((X.values, embed), axis=1)
+        else:
+            self.X = X.values
+
+        self.y = input_data['checkins'].values
+
+        print(self.X.shape)
+
+
 class HousePriceModel(PredictionModel):
     def __init__(self, idx_coor_map, config, n_epochs, embedding=None, second_embedding=None, third_embedding=None):
         super(HousePriceModel, self).__init__(idx_coor_map, config, n_epochs, embedding, second_embedding, third_embedding)

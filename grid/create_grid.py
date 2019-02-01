@@ -268,14 +268,14 @@ class RegionGrid:
         :return: (np.array) array of counts
         """
 
-        checkins = numpy.zeros(self.n_regions)
+        checkins = numpy.zeros((self.n_regions, 3))
 
-        i = 0
         for coor, r, in self.regions.items():
-            checkins[i] = r.count_checkins()
-            i += 1
+            checkins[r.index, 0] = r.count_checkins()
+            checkins[r.index, 1] = r.mid_point[0]
+            checkins[r.index, 2] = r.mid_point[1]
 
-        return checkins
+        return pandas.DataFrame(checkins, columns=['checkins', 'lat', 'lon'])
 
 
     def load_img_data(self, img_dims=(50,50), std_img=True):

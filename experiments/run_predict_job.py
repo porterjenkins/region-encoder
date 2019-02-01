@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
 from grid.create_grid import RegionGrid
 from sklearn.model_selection import KFold
-from experiments.prediction import HousePriceModel, TrafficVolumeModel
+from experiments.prediction import HousePriceModel, TrafficVolumeModel, CheckinModel
 
 
 
@@ -80,16 +80,34 @@ elif task == 'traffic':
     msne_tile2_vec_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['msne_file'], c['tile2vec_file'])
     hdge_mod = TrafficVolumeModel(region_grid.idx_coor_map, c, n_epochs, c['hdge_file'])
 
+elif task == 'check_in':
+    input_data = region_grid.get_checkin_counts()
+    naive_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs)
+    naive_raw_feature_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, embedding=region_grid.feature_matrix,
+                                               second_embedding=region_grid.weighted_mtx)
+    deepwalk_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, embedding=c['deepwalk_file'])
+    node2vec_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['node2vec_file'])
+    re_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'])
+    joint_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'], c['deepwalk_file'])
+    nmf_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['nmf_file'])
+    pca_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['pca_file'])
+    autoencoder_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
+    tile2vec_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['tile2vec_file'])
+    joint_ae_dw = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['deepwalk_file'],
+                                     c['autoencoder_embedding_file'])
+    msne_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['msne_file'])
+    msne_tile2_vec_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['msne_file'], c['tile2vec_file'])
+    hdge_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['hdge_file'])
 
 else:
-    raise NotImplementedError("User must input task: {'house_price' or 'traffic'")
+    raise NotImplementedError("User must input task: {'house_price', 'traffic', or 'checkin'")
 
 
 
 # Get Features
 naive_mod.get_features(input_data)
 naive_raw_feature_mod.get_features(input_data)
-naive_raw_feature_img_mod.get_features(input_data)
+#naive_raw_feature_img_mod.get_features(input_data)
 deepwalk_mod.get_features(input_data)
 node2vec_mod.get_features(input_data)
 nmf_mod.get_features(input_data)
@@ -135,15 +153,15 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # Naive model w/ raw features
 
-    rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
-    raw_features_err[fold_cntr, 0] = rmse
-    raw_features_err[fold_cntr, 1] = mae
+    #rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
+    #raw_features_err[fold_cntr, 0] = rmse
+    #raw_features_err[fold_cntr, 1] = mae
 
     # Naive model w/ raw features + images
 
-    rmse, mae = naive_raw_feature_img_mod.train_eval(train_idx, test_idx, estimator)
-    raw_features_img_err[fold_cntr, 0] = rmse
-    raw_features_img_err[fold_cntr, 1] = mae
+    #rmse, mae = naive_raw_feature_img_mod.train_eval(train_idx, test_idx, estimator)
+    #raw_features_img_err[fold_cntr, 0] = rmse
+    #raw_features_img_err[fold_cntr, 1] = mae
 
     # DeepWalk Model
     rmse, mae = deepwalk_mod.train_eval(train_idx, test_idx, estimator)
