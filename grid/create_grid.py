@@ -261,6 +261,23 @@ class RegionGrid:
         return df
 
 
+
+    def get_checkin_counts(self):
+        """
+        Compute total check-in county by region
+        :return: (np.array) array of counts
+        """
+
+        checkins = numpy.zeros(self.n_regions)
+
+        i = 0
+        for coor, r, in self.regions.items():
+            checkins[i] = r.count_checkins()
+            i += 1
+
+        return checkins
+
+
     def load_img_data(self, img_dims=(50,50), std_img=True):
 
         idx_cntr = 0
@@ -740,6 +757,14 @@ class Region:
             'nw': f"{x - 1},{y - 1}"
         }
 
+    def count_checkins(self):
+
+        total_cnt = 0
+        for p in self.poi:
+            total_cnt += p.checkin_count
+
+        return total_cnt
+
     def create_adjacency(self, regions):
         self.adjacent = regions
 
@@ -850,7 +875,7 @@ if __name__ == '__main__':
     region_grid = RegionGrid(config=c)
     tmp = region_grid.feature_matrix.sum(axis=1)
 
-
+    checkins = region_grid.get_checkin_counts()
 
     # region_grid.load_img_data(std_img=True)
     region_grid.load_weighted_mtx()
