@@ -155,7 +155,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # Naive model w/ raw features
 
-    """rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
+    rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
     raw_features_err[fold_cntr, 0] = rmse
     raw_features_err[fold_cntr, 1] = mae
 
@@ -178,7 +178,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     # Matrix Factorization Model
     rmse, mae = nmf_mod.train_eval(train_idx, test_idx, estimator)
     nmf_err[fold_cntr, 0] = rmse
-    nmf_err[fold_cntr, 1] = mae"""
+    nmf_err[fold_cntr, 1] = mae
 
 
     # RegionEncoder model
@@ -187,7 +187,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     embed_err[fold_cntr, 1] = mae
 
     #PCA model
-    """rmse, mae = pca_mod.train_eval(train_idx, test_idx, estimator)
+    rmse, mae = pca_mod.train_eval(train_idx, test_idx, estimator)
     pca_err[fold_cntr, 0] = rmse
     pca_err[fold_cntr, 1] = mae
 
@@ -220,7 +220,7 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     # hdge model
     rmse, mae = hdge_mod.train_eval(train_idx, test_idx, estimator)
     hdge_err[fold_cntr, 0] = rmse
-    hdge_err[fold_cntr, 1] = mae"""
+    hdge_err[fold_cntr, 1] = mae
 
     fold_cntr += 1
 
