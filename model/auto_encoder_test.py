@@ -46,37 +46,38 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x):
         # Encode
-        #print(x.shape)
+        print(x.shape)
         x = self.pool(F.relu(self.conv1(x)))
-        #print(x.shape)
+        print(x.shape)
         x = self.pool(F.relu(self.conv2(x)))
-        #print(x.shape)
+        print(x.shape)
         x = x.view(-1, 24 * 11 * 11)
-        #print(x.shape)
+        print(x.shape)
         x = F.relu(self.fc1(x))
-        #print(x.shape)
+        print(x.shape)
         x = F.relu(self.fc2(x))
-        #print(x.shape)
+        print(x.shape)
 
         # hidden state
         h = self.fc3(x)
-        #print(self.h.shape)
+        print(h.shape)
 
         x = F.relu(self.fc4(h))
-        #print(x.shape)
+        print(x.shape)
         x = F.relu(self.fc5(x))
-        #print(x.shape)
+        print(x.shape)
         x = F.relu(self.fc6(x))
-        #print(x.shape)
+        print(x.shape)
 
         x = x.view(-1, 24, 11, 11)
-        #print(x.shape)
+        print(x.shape)
 
         x = self.up_sample3(F.relu(self.conv3(x)))
-        #print(x.shape)
+        print(x.shape)
         x = self.up_sample4(F.relu(self.conv4(x)))
-        #print(x.shape)
+        print(x.shape)
         x = torch.tanh(self.conv5(x))
+        print(x.shape)
 
         return x, h
 
@@ -169,7 +170,6 @@ if __name__ == "__main__":
     c = get_config()
     region_grid = RegionGrid(config=c)
     region_grid.load_img_data(std_img=True)
-    region_grid.img_tens_get_size()
 
 
     img_tensor = torch.Tensor(region_grid.img_tensor)

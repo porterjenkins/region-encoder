@@ -155,15 +155,15 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
 
     # Naive model w/ raw features
 
-    rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
-    raw_features_err[fold_cntr, 0] = rmse
-    raw_features_err[fold_cntr, 1] = mae
+    #rmse, mae = naive_raw_feature_mod.train_eval(train_idx, test_idx, estimator)
+    #raw_features_err[fold_cntr, 0] = rmse
+    #raw_features_err[fold_cntr, 1] = mae
 
     # Naive model w/ raw features + images
 
-    rmse, mae = naive_raw_feature_img_mod.train_eval(train_idx, test_idx, estimator)
-    raw_features_img_err[fold_cntr, 0] = rmse
-    raw_features_img_err[fold_cntr, 1] = mae
+    #rmse, mae = naive_raw_feature_img_mod.train_eval(train_idx, test_idx, estimator)
+    #raw_features_img_err[fold_cntr, 0] = rmse
+    #raw_features_img_err[fold_cntr, 1] = mae
 
     # DeepWalk Model
     rmse, mae = deepwalk_mod.train_eval(train_idx, test_idx, estimator)
