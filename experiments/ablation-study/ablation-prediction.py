@@ -42,8 +42,9 @@ concat_embed ='{}concat_global_embedding.txt'.format(c['data_dir_main'])
 
 
 if task == 'house_price':
-
-    raise NotImplementedError("house price")
+    input_data = region_grid.load_housing_data(c['housing_data_file'])
+    re_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'])
+    autoencoder_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
 
 elif task == 'check_in':
     input_data = region_grid.get_checkin_counts(metric="mean")
@@ -116,9 +117,15 @@ results_df.to_csv("../results/ablation-{}-{}-results.csv".format(task, estimator
 groups = np.arange(results_df.shape[0])
 width = .35
 
-plt.bar(groups, results_df['cv rmse'], width, label='rmse')
-plt.bar(groups + width, results_df['cv mae'], width, label='mae')
+fig, ax = plt.subplots(nrows=2, ncols=1)
+
+
+
+ax[0].bar(groups, results_df['cv rmse'], width, label='rmse')
+ax[1].bar(groups + width, results_df['cv mae'], width, label='mae')
 
 plt.xticks(groups + width / 2, results_df['model'])
-plt.legend(loc='best')
-plt.show()
+#ax.set_xticks(groups + width / 2, results_df['model'])
+
+#plt.legend(loc='best')
+plt.savefig("../results/ablation-{}-{}-results.pdf".format(task, estimator))
