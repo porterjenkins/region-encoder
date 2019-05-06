@@ -191,7 +191,20 @@ class GCN(nn.Module):
     # ideally  this should be outside the module
     # we should be passing all the parameters it needs then run it as opposed to half in and half out
     def run_train_job(self, region_grid, n_epoch, n_neg_samples=15, n_pos_samples=4,learning_rate=.01, penalty=(1.0, 1.0)):
+        """
+
+        :param region_grid:
+        :param n_epoch:
+        :param n_neg_samples:
+        :param n_pos_samples:
+        :param learning_rate:
+        :param penalty: optimizations penatlies for loss function:
+                            - penalty[0]: Skipgram Loss
+                            - penalty[1]: Flow mtx reconstruction loss
+        :return:
+        """
         optimizer = self.get_optimizer(learning_rate)
+
 
         A = region_grid.adj_matrix
         D = region_grid.degree_matrix
