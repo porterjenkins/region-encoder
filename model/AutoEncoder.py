@@ -8,6 +8,9 @@ import torch.optim as optim
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import get_config
 from model.utils import write_embeddings
+import matplotlib.pyplot as plt
+import numpy as np
+from grid.create_grid import RegionGrid
 
 class ViewEncode(nn.Module):
     def forward(self, input):
@@ -149,11 +152,6 @@ class AutoEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from grid.create_grid import RegionGrid
-
 
     # functions to show an image
 
