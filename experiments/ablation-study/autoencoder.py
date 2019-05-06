@@ -2,11 +2,11 @@ from grid.create_grid import RegionGrid
 import os
 import sys
 import torch
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from config import get_config
 from model.utils import write_embeddings
 from model.AutoEncoder import AutoEncoder
-import numpy as np
+
 
 if len(sys.argv) > 1:
     epochs = int(sys.argv[1])

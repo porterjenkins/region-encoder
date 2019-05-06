@@ -251,6 +251,7 @@ class GCN(nn.Module):
                                                                                                   loss_edge_weights))
 
         print('Finished Training')
+        return H
 
 
 def to_torch_tensor(matrix, to_type=torch.FloatTensor):
