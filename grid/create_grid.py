@@ -11,7 +11,6 @@ import pandas
 from geopy.distance import distance
 from scipy import ndimage
 from scipy.spatial.distance import euclidean
-import geopandas as gp
 from shapely import geometry
 import re
 
