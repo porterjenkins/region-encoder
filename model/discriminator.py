@@ -47,6 +47,15 @@ class DiscriminatorNCF(nn.Module):
         pass
 
 
+class DiscriminatorConcat(nn.Module):
+    """
+    Simple concatentation of input vectors
+    """
+
+    def forward(self, x, z):
+        h = torch.cat((x, z), 0)
+
+
 if __name__ == "__main__":
     n = 100
     p = 32
