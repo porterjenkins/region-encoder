@@ -45,11 +45,22 @@ if task == 'house_price':
     input_data = region_grid.load_housing_data(c['housing_data_file'])
     re_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'])
     autoencoder_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
+    gcn_skipgram_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, gcn_sg_embed)
+    gcn_flow_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, gcn_flow_embed)
+    gcn_all_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, gcn_all_embed)
+    gcn_ae_concat_mod = HousePriceModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'],
+                                     gcn_all_embed)
+
 
 elif task == 'check_in':
     input_data = region_grid.get_checkin_counts(metric="mean")
     # init prediction models
     re_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['embedding_file'])
+    gcn_all_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, gcn_all_embed)
+    gcn_skipgram_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, gcn_sg_embed)
+    gcn_flow_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, gcn_flow_embed)
+    gcn_ae_concat_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'],
+                                     gcn_all_embed)
     autoencoder_mod = CheckinModel(region_grid.idx_coor_map, c, n_epochs, c['autoencoder_embedding_file'])
 
 
@@ -60,6 +71,11 @@ else:
 # get features
 re_mod.get_features(input_data)
 autoencoder_mod.get_features(input_data)
+gcn_all_mod.get_features(input_data)
+gcn_skipgram_mod.get_features(input_data)
+gcn_flow_mod.get_features(input_data)
+gcn_ae_concat_mod.get_features(input_data)
+
 
 
 k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=1990)
@@ -67,6 +83,11 @@ k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=1990)
 
 embed_err = np.zeros((n_folds, 2))
 ae_err = np.zeros((n_folds, 2))
+gcn_all_err = np.zeros((n_folds, 2))
+gcn_flow_err = np.zeros((n_folds, 2))
+gcn_sg_err = np.zeros((n_folds, 2))
+gcn_ae_concat_err = np.zeros((n_folds, 2))
+
 
 train_ind_arr = np.arange(re_mod.X.shape[0])
 
@@ -81,10 +102,29 @@ for train_idx, test_idx in k_fold.split(train_ind_arr):
     embed_err[fold_cntr, 1] = mae
 
     #AutoEncoder Model
-
     rmse, mae = autoencoder_mod.train_eval(train_idx, test_idx, estimator)
     ae_err[fold_cntr, 0] = rmse
     ae_err[fold_cntr, 1] = mae
+
+    # GCN all
+    rmse, mae = gcn_all_mod.train_eval(train_idx, test_idx, estimator)
+    gcn_all_err[fold_cntr, 0] = rmse
+    gcn_all_err[fold_cntr, 1] = mae
+
+    # GCN flow
+    rmse, mae = gcn_flow_mod.train_eval(train_idx, test_idx, estimator)
+    gcn_flow_err[fold_cntr, 0] = rmse
+    gcn_flow_err[fold_cntr, 1] = mae
+
+    # GCN skipgram
+    rmse, mae = gcn_skipgram_mod.train_eval(train_idx, test_idx, estimator)
+    gcn_sg_err[fold_cntr, 0] = rmse
+    gcn_sg_err[fold_cntr, 1] = mae
+
+    # GCN + AE (concat)
+    rmse, mae = gcn_ae_concat_mod.train_eval(train_idx, test_idx, estimator)
+    gcn_ae_concat_err[fold_cntr, 0] = rmse
+    gcn_ae_concat_err[fold_cntr, 1] = mae
 
 
     fold_cntr += 1
@@ -97,10 +137,27 @@ ae_err_mean = np.mean(ae_err, axis=0)
 ae_err_std = np.std(ae_err, axis=0)
 results.append(['AutoEncoder', ae_err_mean[0], ae_err_std[0], ae_err_mean[1], ae_err_std[1]])
 
+gcn_sg_mean = np.mean(gcn_sg_err, axis=0)
+gcn_sg_std = np.std(gcn_sg_err, axis=0)
+results.append(['GCN - SkipGram', gcn_sg_mean[0], gcn_sg_std[0], gcn_sg_mean[1], gcn_sg_std[1]])
+
+gcn_flow_mean = np.mean(gcn_flow_err, axis=0)
+gcn_flow_std = np.std(gcn_flow_err, axis=0)
+results.append(['GCN - Flow', gcn_flow_mean[0], gcn_flow_std[0], gcn_flow_mean[1], gcn_flow_std[1]])
+
+gcn_all_mean = np.mean(gcn_all_err, axis=0)
+gcn_all_std = np.std(gcn_all_err, axis=0)
+results.append(['GCN (flow + skipgram)', gcn_all_mean[0], gcn_all_std[0], gcn_all_mean[1], gcn_all_std[1]])
+
+concat_err_mean = np.mean(gcn_ae_concat_err, axis=0)
+concat_err_std = np.std(embed_err, axis=0)
+results.append(['GCN (all) + AE', concat_err_mean[0], concat_err_std[0], concat_err_mean[1], concat_err_std[1]])
+
 
 embed_err_mean = np.mean(embed_err, axis=0)
 embed_err_std = np.std(embed_err, axis=0)
 results.append(['RegionEncoder', embed_err_mean[0], embed_err_std[0], embed_err_mean[1], embed_err_std[1]])
+
 
 
 
