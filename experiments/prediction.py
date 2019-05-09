@@ -65,7 +65,7 @@ class PredictionModel(object):
         pass
 
 
-    def train_eval(self, train_idx, test_idx, model='xgb'):
+    def train_eval(self, train_idx, test_idx, model='xgb', random_state=None):
 
         # TODO: Fix random seed for all regressors?
         if model == 'xgb':
@@ -89,7 +89,7 @@ class PredictionModel(object):
 
         elif model == 'rf':
 
-            model = RandomForestRegressor()
+            model = RandomForestRegressor(random_state=random_state)
             model.fit(X=self.X[train_idx, :], y=self.y[train_idx])
             pred = model.predict(X=self.X[test_idx])
 

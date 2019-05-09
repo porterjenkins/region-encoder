@@ -96,8 +96,9 @@ def plt_dict(d, c, fname, y_lim):
             colors.append(c[cat])
 
     plt.figure(figsize=(3,3))
+    plt.subplots_adjust(bottom=.6)
     plt.bar(range(len(d)), list(d.values()), align='center', color=colors)
-    plt.xticks(range(len(d)), list(d.keys()), rotation=10,fontsize=6)
+    plt.xticks(range(len(d)), list(d.keys()), rotation=90, fontsize=14)
     plt.yticks(fontsize=8)
     plt.ylim(y_lim)
     plt.legend(loc='best')
