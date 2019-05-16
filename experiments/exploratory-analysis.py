@@ -5,12 +5,9 @@ from config import get_config
 from grid.create_grid import RegionGrid
 import numpy as np
 import matplotlib.pyplot as plt
-#os.environ['PROJ_LIB'] = "//Users/porterjenkins/anaconda/envs/py3-region-rep/share/proj/"
-#from mpl_toolkits.basemap import Basemap
 import geopandas as gpd
-import pandas as pd
-import descartes
-from shapely.geometry import Point, Polygon
+
+
 
 c = get_config()
 
@@ -44,8 +41,12 @@ print(checkin.head())
 
 
 
-#shape_fname = c['data_dir_main'] + 'geo_export_f0db6423-ef91-4ee9-b18a-7b56cf970085.shp'
-
+if c["city_name"] == 'nyc':
+    scaler = 50
+    scatter_size = 20
+else:
+    scaler = 10
+    scatter_size = 4
 
 city = gpd.read_file(c['shape_file'])
 city.plot(alpha=.5, figsize=(10, 10), color='gray')
@@ -54,12 +55,13 @@ x = house_price.lon
 y = house_price.lat
 z = house_price['priceSqft']
 
-cm = plt.cm.get_cmap('coolwarm')
-sc = plt.scatter(x, y, c=z, cmap=cm, alpha=.4,s=4)
+cm = plt.cm.get_cmap('RdYlGn')
+sc = plt.scatter(x, y, c=z, cmap=cm, alpha=.4,s=scatter_size)
 
 #plt.ylim((c['lat_min'], c['lat_max']))
 #plt.xlim((c['lon_min'], c['lon_max']))
-plt.colorbar(sc)
+cbar = plt.colorbar(sc)
+cbar.ax.tick_params(labelsize=28)
 plt.ylim((c['lat_min'], c['lat_max']))
 plt.xlim((c['lon_min'], c['lon_max']))
 plt.axis('off')
@@ -68,11 +70,7 @@ plt.clf()
 plt.close()
 
 city.plot(alpha=.5, figsize=(10,10), color='gray')
-if c["city_name"] == 'nyc':
-    scaler = 50
-else:
-    scaler = 10
-plt.scatter(checkin.lon, checkin.lat, s=checkin.checkins/scaler, alpha=.75, c='orange')
+plt.scatter(checkin.lon, checkin.lat, s=checkin.checkins/scaler, alpha=.5, c='blue')
 plt.ylim((c['lat_min'], c['lat_max']))
 plt.xlim((c['lon_min'], c['lon_max']))
 plt.axis('off')
