@@ -9,10 +9,8 @@ from model.utils import load_embedding
 from sklearn.neighbors import NearestNeighbors
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-from matplotlib import cm
-import matplotlib.cm as cmx
-import matplotlib.colors as colors
-
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
 
 def get_knn(X, k):
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='ball_tree').fit(X)
@@ -89,6 +87,8 @@ def filter_dict(d, top_k, norm=True):
 def plt_dict(d, c, fname, y_lim):
     if 'None' in d:
         del d['None']
+    if 'Arts & Crafts' in d:
+        del d['Arts & Crafts']
 
     colors = []
     for cat in d.keys():

@@ -5,6 +5,8 @@ from config import get_config
 from grid.create_grid import RegionGrid
 import numpy as np
 import matplotlib.pyplot as plt
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
 import geopandas as gpd
 
 
