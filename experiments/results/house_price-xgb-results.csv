@@ -1,0 +1,15 @@
+,model,cv rmse,std rmse,cv mae,std mae
+0,Naive,0.0,0.0,0.0,0.0
+1,raw features,0.0,0.0,0.0,0.0
+2,raw features+kmeans,0.0,0.0,0.0,0.0
+3,DeepWalk Embedding,0.0,0.0,0.0,0.0
+4,Node2Vec Embedding,0.0,0.0,0.0,0.0
+5,Matrix Factorization,0.0,0.0,0.0,0.0
+6,PCA,0.0,0.0,0.0,0.0
+7,AutoEncoder,0.0,0.0,0.0,0.0
+8,AutoEncoder + DeepWalk,0.0,0.0,0.0,0.0
+9,Tile2Vec,0.0,0.0,0.0,0.0
+10,HDGE,19108.347501542634,9011.367501176488,900.5184223446824,334.14239471921195
+11,MSNE,0.0,0.0,0.0,0.0
+12,MSNE + Tile2Vec,0.0,0.0,0.0,0.0
+13,RegionEncoder,0.0,0.0,0.0,0.0
